@@ -320,7 +320,7 @@ function onTargetChange() {
 }
 
 function saveData() {
-  try { localStorage.setItem('flexwork_2026', JSON.stringify(state)); } catch(e) {}
+  // 저장 (세션 내 메모리 유지)
   document.getElementById('saveBtn').classList.add('saved');
   const n = document.getElementById('saveNotice');
   n.style.display = 'flex';
@@ -328,7 +328,7 @@ function saveData() {
 }
 
 function loadData() {
-  try { const r = localStorage.getItem('flexwork_2026'); if (r) state = JSON.parse(r); } catch(e) {}
+  // 로컬스토리지 미사용
 }
 
 function openModal(d, anchor) {

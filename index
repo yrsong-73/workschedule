@@ -25,7 +25,7 @@
     .month-nav { display: flex; align-items: center; gap: 6px; }
     .month-nav button { background: none; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 6px 12px; cursor: pointer; font-size: 15px; color: var(--color-text-primary); line-height: 1; }
     .month-nav button:hover { background: var(--color-background-secondary); }
-    .month-label { font-size: 15px; font-weight: 500; color: var(--color-text-primary); min-width: 90px; text-align: center; }
+    .month-label { font-size: 15px; font-weight: 500; color: var(--color-text-primary); min-width: 100px; text-align: center; }
     .summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
     .card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px; }
     .card-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; }
@@ -131,19 +131,68 @@
 </div>
 
 <script>
-const MONTHS = [6,7,8,9,10,11,12];
-let curIdx = 0;
+// ── 현재 날짜 기준으로 시작 ──────────────────────────────
+const today = new Date();
+let curYear = today.getFullYear();
+let curMonth = today.getMonth() + 1; // 1~12
+
 let state = {};
 let activeModalDay = null;
 
+// ── 한국 공휴일 (연도별로 확장 가능) ────────────────────
 const HOLIDAYS = {
-  '2026-6': {},
-  '2026-7': { 17: '제헌절' },
-  '2026-8': { 15: '광복절' },
-  '2026-9': { 28: '추석연휴', 29: '추석', 30: '추석연휴' },
-  '2026-10': { 1: '추석연휴', 3: '개천절', 9: '한글날' },
+  // 2024
+  '2024-1':  { 1: '신정' },
+  '2024-2':  { 9: '설날연휴', 10: '설날', 11: '설날연휴' },
+  '2024-3':  { 1: '삼일절' },
+  '2024-4':  {},
+  '2024-5':  { 5: '어린이날', 6: '대체공휴일', 15: '부처님오신날' },
+  '2024-6':  { 6: '현충일' },
+  '2024-7':  {},
+  '2024-8':  { 15: '광복절' },
+  '2024-9':  { 16: '추석연휴', 17: '추석', 18: '추석연휴' },
+  '2024-10': { 3: '개천절', 9: '한글날' },
+  '2024-11': {},
+  '2024-12': { 25: '크리스마스' },
+  // 2025
+  '2025-1':  { 1: '신정', 28: '설날연휴', 29: '설날', 30: '설날연휴' },
+  '2025-2':  {},
+  '2025-3':  { 1: '삼일절', 3: '대체공휴일' },
+  '2025-4':  {},
+  '2025-5':  { 5: '어린이날', 6: '부처님오신날' },
+  '2025-6':  { 6: '현충일' },
+  '2025-7':  {},
+  '2025-8':  { 15: '광복절' },
+  '2025-9':  { 3: '추석연휴', 4: '추석', 5: '추석연휴' },
+  '2025-10': { 3: '개천절', 9: '한글날' },
+  '2025-11': {},
+  '2025-12': { 25: '크리스마스' },
+  // 2026
+  '2026-1':  { 1: '신정' },
+  '2026-2':  { 16: '설날연휴', 17: '설날', 18: '설날연휴', 19: '대체공휴일' },
+  '2026-3':  { 1: '삼일절', 2: '대체공휴일' },
+  '2026-4':  {},
+  '2026-5':  { 5: '어린이날', 24: '부처님오신날', 25: '대체공휴일' },
+  '2026-6':  { 6: '현충일' },
+  '2026-7':  { 17: '제헌절' },
+  '2026-8':  { 15: '광복절', 17: '대체공휴일' },
+  '2026-9':  { 24: '추석연휴', 25: '추석', 26: '추석연휴' },
+  '2026-10': { 3: '개천절', 9: '한글날' },
   '2026-11': {},
-  '2026-12': { 25: '크리스마스' }
+  '2026-12': { 25: '크리스마스' },
+  // 2027
+  '2027-1':  { 1: '신정' },
+  '2027-2':  { 6: '설날연휴', 7: '설날', 8: '설날연휴', 9: '대체공휴일' },
+  '2027-3':  { 1: '삼일절' },
+  '2027-4':  {},
+  '2027-5':  { 5: '어린이날', 13: '부처님오신날' },
+  '2027-6':  { 6: '현충일', 7: '대체공휴일' },
+  '2027-7':  {},
+  '2027-8':  { 15: '광복절', 16: '대체공휴일' },
+  '2027-9':  { 14: '추석연휴', 15: '추석', 16: '추석연휴', 17: '대체공휴일' },
+  '2027-10': { 3: '개천절', 4: '대체공휴일', 9: '한글날' },
+  '2027-11': {},
+  '2027-12': { 25: '크리스마스', 27: '대체공휴일' },
 };
 
 function hkey(y, m) { return y + '-' + m; }
@@ -154,17 +203,17 @@ function initMonth(y, m) {
   if (!state[k]) state[k] = { target: '', days: {}, events: {} };
 }
 
-function getState() { return state[hkey(2026, MONTHS[curIdx])]; }
+function getState() { return state[hkey(curYear, curMonth)]; }
 
 function changeMonth(d) {
-  const n = curIdx + d;
-  if (n < 0 || n >= MONTHS.length) return;
-  curIdx = n;
+  curMonth += d;
+  if (curMonth < 1) { curMonth = 12; curYear--; }
+  if (curMonth > 12) { curMonth = 1; curYear++; }
   renderMonth();
 }
 
 function renderMonth() {
-  const m = MONTHS[curIdx], y = 2026;
+  const y = curYear, m = curMonth;
   initMonth(y, m);
   const st = getState();
   document.getElementById('monthLabel').textContent = y + '년 ' + m + '월';
@@ -293,7 +342,7 @@ function fmtMins(m) {
 }
 
 function recalc() {
-  const m = MONTHS[curIdx], y = 2026;
+  const y = curYear, m = curMonth;
   const days = new Date(y, m, 0).getDate();
   let total = 0, cnt = 0;
   for (let d = 1; d <= days; d++) {
@@ -320,7 +369,7 @@ function onTargetChange() {
 }
 
 function saveData() {
-  // 저장 (세션 내 메모리 유지)
+  try { localStorage.setItem('flexwork_data', JSON.stringify(state)); } catch(e) {}
   document.getElementById('saveBtn').classList.add('saved');
   const n = document.getElementById('saveNotice');
   n.style.display = 'flex';
@@ -328,7 +377,10 @@ function saveData() {
 }
 
 function loadData() {
-  // 로컬스토리지 미사용
+  try {
+    const r = localStorage.getItem('flexwork_data');
+    if (r) state = JSON.parse(r);
+  } catch(e) {}
 }
 
 function openModal(d, anchor) {
@@ -354,7 +406,7 @@ function addEvent() {
   if (!st.events[activeModalDay]) st.events[activeModalDay] = [];
   st.events[activeModalDay].push(val);
   closeModal();
-  buildCalendar(2026, MONTHS[curIdx], st);
+  buildCalendar(curYear, curMonth, st);
   recalc();
 }
 
@@ -362,7 +414,7 @@ function removeEvent(d, i) {
   const st = getState();
   if (!st.events[d]) return;
   st.events[d].splice(i, 1);
-  buildCalendar(2026, MONTHS[curIdx], st);
+  buildCalendar(curYear, curMonth, st);
 }
 
 document.getElementById('eventInput').addEventListener('keydown', e => {

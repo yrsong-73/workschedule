@@ -1,0 +1,362 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { padding: 1.5rem 0; font-family: var(--font-sans); }
+.top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.top-bar h2 { font-size: 18px; font-weight: 500; color: var(--color-text-primary); flex: 1; }
+.month-nav { display: flex; align-items: center; gap: 6px; }
+.month-nav button { background: none; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 6px 10px; cursor: pointer; font-size: 13px; color: var(--color-text-primary); }
+.month-nav button:hover { background: var(--color-background-secondary); }
+.month-label { font-size: 15px; font-weight: 500; color: var(--color-text-primary); min-width: 90px; text-align: center; }
+.summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px; }
+.card-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; }
+.card-value { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.card-value.pos { color: #1D9E75; }
+.card-value.neg { color: #E24B4A; }
+.card-value.neu { color: var(--color-text-secondary); }
+.target-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.target-row label { font-size: 13px; color: var(--color-text-secondary); white-space: nowrap; }
+.target-row input[type=number] { width: 80px; padding: 6px 8px; font-size: 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); }
+.target-row span { font-size: 13px; color: var(--color-text-secondary); }
+.btn-save { background: none; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 8px 20px; font-size: 14px; color: var(--color-text-primary); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.btn-save:hover { background: var(--color-background-secondary); }
+.btn-save.saved { color: #1D9E75; border-color: #5DCAA5; }
+.save-notice { font-size: 12px; color: #1D9E75; display: none; align-items: center; gap: 5px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 1.5rem; }
+.dow { font-size: 11px; color: var(--color-text-secondary); text-align: center; padding: 4px 0; }
+.dow.dow-sun { color: #E24B4A; }
+.dow.dow-sat { color: #185FA5; }
+.day-cell { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 7px 6px 6px; min-height: 120px; display: flex; flex-direction: column; gap: 3px; }
+.day-cell.empty { background: none; border: none; }
+.day-cell.day-sat { background: #E6F1FB; border-color: #B5D4F4; }
+.day-cell.day-sun { background: #FCEBEB; border-color: #F7C1C1; }
+.day-cell.day-holiday { background: #FCEBEB; border-color: #F7C1C1; }
+.day-num { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+.day-cell.day-sat .day-num { color: #185FA5; }
+.day-cell.day-sun .day-num { color: #E24B4A; }
+.day-cell.day-holiday .day-num { color: #E24B4A; }
+.holiday-label { font-size: 9px; color: #E24B4A; font-weight: 500; margin-bottom: 1px; }
+.event-area { display: flex; flex-direction: column; gap: 2px; }
+.event-tag { font-size: 10px; background: #E1F5EE; color: #0F6E56; border-radius: 4px; padding: 2px 5px; display: flex; align-items: center; gap: 2px; }
+.event-tag span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-tag button { background: none; border: none; cursor: pointer; font-size: 10px; color: #0F6E56; padding: 0; line-height: 1; flex-shrink: 0; }
+.add-event-btn { font-size: 10px; color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
+.add-event-btn:hover { color: var(--color-text-secondary); }
+.time-fields { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.time-fields input[type=time] { font-size: 11px; padding: 3px 5px; border: 0.5px solid var(--color-border-tertiary); border-radius: 5px; background: var(--color-background-secondary); color: var(--color-text-primary); width: 100%; }
+.day-cell.day-sat .time-fields input[type=time],
+.day-cell.day-sun .time-fields input[type=time],
+.day-cell.day-holiday .time-fields input[type=time] { background: rgba(255,255,255,0.5); }
+.day-hours { font-size: 12px; font-weight: 500; color: #1D9E75; text-align: center; margin-top: auto; padding-top: 2px; }
+.day-hours.zero { color: var(--color-text-tertiary); }
+.relative { position: relative; }
+.event-modal { display: none; position: absolute; background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-lg); padding: 14px; z-index: 10; width: 200px; }
+.event-modal input[type=text] { width: 100%; font-size: 13px; padding: 6px 8px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); margin-bottom: 8px; }
+.event-modal-btns { display: flex; gap: 6px; }
+.event-modal-btns button { flex: 1; font-size: 12px; padding: 6px; border-radius: var(--border-radius-md); cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: none; color: var(--color-text-primary); }
+.event-modal-btns button.confirm { background: var(--color-background-secondary); }
+</style>
+<div class="wrap">
+  <div class="top-bar">
+    <h2><i class="ti ti-calendar" aria-hidden="true" style="margin-right:6px;font-size:18px;vertical-align:-2px;"></i>선택적 근로시간 관리</h2>
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+      <span class="month-label" id="monthLabel"></span>
+      <button onclick="changeMonth(1)"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+    </div>
+  </div>
+  <div class="target-row">
+    <label>이번 달 목표 근무시간</label>
+    <input type="number" id="targetHours" value="" placeholder="0" min="0" max="300" oninput="onTargetChange()" />
+    <span>시간</span>
+    <button class="btn-save" id="saveBtn" onclick="saveData()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save</button>
+    <span class="save-notice" id="saveNotice"><i class="ti ti-check" aria-hidden="true"></i> 저장됨</span>
+  </div>
+  <div class="summary-row">
+    <div class="card"><div class="card-label">총 근무시간</div><div class="card-value" id="totalHours">0h</div></div>
+    <div class="card"><div class="card-label">목표까지</div><div class="card-value neu" id="diffHours">-</div></div>
+    <div class="card"><div class="card-label">입력된 날</div><div class="card-value" id="workDays">0일</div></div>
+  </div>
+  <div class="relative">
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="event-modal" id="eventModal">
+      <input type="text" id="eventInput" placeholder="이벤트 내용" maxlength="20" />
+      <div class="event-modal-btns">
+        <button onclick="closeModal()">취소</button>
+        <button class="confirm" onclick="addEvent()">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const MONTHS = [6,7,8,9,10,11,12];
+let curIdx = 0;
+let state = {};
+let activeModalDay = null;
+
+const HOLIDAYS = {
+  '2026-6': {},
+  '2026-7': { 17: '제헌절' },
+  '2026-8': { 15: '광복절' },
+  '2026-9': { 28: '추석연휴', 29: '추석', 30: '추석연휴' },
+  '2026-10': { 1: '추석연휴', 3: '개천절', 9: '한글날' },
+  '2026-11': {},
+  '2026-12': { 25: '크리스마스' }
+};
+
+function hkey(y,m) { return y+'-'+m; }
+function dkey(y,m,d) { return y+'-'+m+'-'+d; }
+
+function isHoliday(y,m,d) {
+  const h = HOLIDAYS[hkey(y,m)] || {};
+  return h[d] || null;
+}
+
+function initMonth(y,m) {
+  const k = hkey(y,m);
+  if (!state[k]) state[k] = { target: '', days: {}, events: {} };
+}
+
+function getState() { return state[hkey(2026, MONTHS[curIdx])]; }
+
+function changeMonth(d) {
+  const n = curIdx + d;
+  if (n < 0 || n >= MONTHS.length) return;
+  curIdx = n;
+  renderMonth();
+}
+
+function renderMonth() {
+  const m = MONTHS[curIdx], y = 2026;
+  initMonth(y,m);
+  const st = getState();
+  document.getElementById('monthLabel').textContent = y+'년 '+m+'월';
+  document.getElementById('targetHours').value = st.target;
+  document.getElementById('saveNotice').style.display = 'none';
+  document.getElementById('saveBtn').classList.remove('saved');
+  buildCalendar(y,m,st);
+  recalc();
+}
+
+function isOffDay(y,m,d) {
+  const date = new Date(y,m-1,d);
+  const dow = date.getDay();
+  return dow === 0 || dow === 6 || !!isHoliday(y,m,d);
+}
+
+function buildCalendar(y,m,st) {
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const dowLabels = ['일','월','화','수','목','금','토'];
+  dowLabels.forEach((d,i) => {
+    const el = document.createElement('div');
+    el.className = 'dow' + (i===0?' dow-sun':i===6?' dow-sat':'');
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+  const first = new Date(y,m-1,1).getDay();
+  const days = new Date(y,m,0).getDate();
+  for (let i=0;i<first;i++) {
+    const el = document.createElement('div');
+    el.className = 'day-cell empty';
+    grid.appendChild(el);
+  }
+  for (let d=1;d<=days;d++) {
+    const date = new Date(y,m-1,d);
+    const dow = date.getDay();
+    const isSat = dow===6, isSun = dow===0;
+    const holiday = isHoliday(y,m,d);
+    const off = isSat || isSun || !!holiday;
+
+    const saved = st.days[d] || {};
+    let startVal, endVal;
+    if (off) {
+      startVal = saved.start !== undefined ? saved.start : '';
+      endVal = saved.end !== undefined ? saved.end : '';
+    } else {
+      startVal = saved.start !== undefined ? saved.start : '09:00';
+      endVal = saved.end !== undefined ? saved.end : '18:00';
+    }
+
+    const evts = st.events[d] || [];
+    let cellClass = 'day-cell';
+    if (isSat) cellClass += ' day-sat';
+    else if (isSun || holiday) cellClass += (isSun ? ' day-sun' : '') + (holiday ? ' day-holiday' : '');
+
+    const cell = document.createElement('div');
+    cell.className = cellClass;
+
+    const numEl = document.createElement('div');
+    numEl.className = 'day-num';
+    numEl.textContent = d;
+    cell.appendChild(numEl);
+
+    if (holiday) {
+      const hl = document.createElement('div');
+      hl.className = 'holiday-label';
+      hl.textContent = holiday;
+      cell.appendChild(hl);
+    }
+
+    const evtArea = document.createElement('div');
+    evtArea.className = 'event-area';
+    evtArea.id = 'evts_'+d;
+    evts.forEach((ev,i) => {
+      const tag = document.createElement('div');
+      tag.className = 'event-tag';
+      tag.innerHTML = `<span>${ev}</span><button onclick="removeEvent(${d},${i})" title="삭제">✕</button>`;
+      evtArea.appendChild(tag);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-event-btn';
+    addBtn.textContent = '+ 이벤트';
+    addBtn.onclick = (e) => { e.stopPropagation(); openModal(d, cell); };
+    evtArea.appendChild(addBtn);
+    cell.appendChild(evtArea);
+
+    const tf = document.createElement('div');
+    tf.className = 'time-fields';
+    const si = document.createElement('input');
+    si.type = 'time'; si.id = 's_'+d; si.value = startVal; si.step = 60;
+    si.oninput = () => onTimeChange(d);
+    const ei = document.createElement('input');
+    ei.type = 'time'; ei.id = 'e_'+d; ei.value = endVal; ei.step = 60;
+    ei.oninput = () => onTimeChange(d);
+    tf.appendChild(si); tf.appendChild(ei);
+    cell.appendChild(tf);
+
+    const hEl = document.createElement('div');
+    hEl.id = 'h_'+d;
+    hEl.className = 'day-hours zero';
+    hEl.textContent = '-';
+    cell.appendChild(hEl);
+
+    grid.appendChild(cell);
+    updateDayHours(d);
+  }
+}
+
+function onTimeChange(d) {
+  const st = getState();
+  const s = document.getElementById('s_'+d);
+  const e = document.getElementById('e_'+d);
+  if (!s||!e) return;
+  st.days[d] = { start: s.value, end: e.value };
+  updateDayHours(d);
+  recalc();
+}
+
+function updateDayHours(d) {
+  const m = MONTHS[curIdx], y = 2026;
+  const st = getState();
+  const sv = document.getElementById('s_'+d)?.value || '';
+  const ev = document.getElementById('e_'+d)?.value || '';
+  const el = document.getElementById('h_'+d);
+  if (!el) return;
+  if (!sv || !ev) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
+  const mins = timeDiff(sv, ev);
+  if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
+  el.textContent = fmtMins(mins);
+  el.className = 'day-hours';
+}
+
+function timeDiff(s,e) {
+  const [sh,sm] = s.split(':').map(Number);
+  const [eh,em] = e.split(':').map(Number);
+  return (eh*60+em)-(sh*60+sm);
+}
+
+function fmtMins(m) {
+  const h = Math.floor(m/60), mn = m%60;
+  return mn>0 ? h+'h '+mn+'m' : h+'h';
+}
+
+function recalc() {
+  const m = MONTHS[curIdx], y = 2026;
+  const days = new Date(y,m,0).getDate();
+  let total = 0, cnt = 0;
+  for (let d=1;d<=days;d++) {
+    const sv = document.getElementById('s_'+d)?.value || '';
+    const ev = document.getElementById('e_'+d)?.value || '';
+    if (!sv || !ev) continue;
+    const mins = timeDiff(sv,ev);
+    if (mins>0) { total+=mins; cnt++; }
+  }
+  document.getElementById('totalHours').textContent = fmtMins(total);
+  document.getElementById('workDays').textContent = cnt+'일';
+  const tgt = parseFloat(document.getElementById('targetHours').value)||0;
+  const diffEl = document.getElementById('diffHours');
+  if (!tgt) { diffEl.textContent = '-'; diffEl.className = 'card-value neu'; return; }
+  const diff = tgt*60 - total;
+  if (diff > 0) { diffEl.textContent = '+'+fmtMins(diff)+' 필요'; diffEl.className = 'card-value neg'; }
+  else if (diff < 0) { diffEl.textContent = fmtMins(-diff)+' 초과'; diffEl.className = 'card-value pos'; }
+  else { diffEl.textContent = '딱 맞음!'; diffEl.className = 'card-value pos'; }
+}
+
+function onTargetChange() {
+  const st = getState();
+  st.target = document.getElementById('targetHours').value;
+  recalc();
+}
+
+function saveData() {
+  try { localStorage.setItem('flexwork_2026', JSON.stringify(state)); } catch(e){}
+  document.getElementById('saveBtn').classList.add('saved');
+  const n = document.getElementById('saveNotice');
+  n.style.display = 'flex';
+  setTimeout(()=>{ document.getElementById('saveBtn').classList.remove('saved'); n.style.display='none'; },2000);
+}
+
+function loadData() {
+  try { const r = localStorage.getItem('flexwork_2026'); if(r) state = JSON.parse(r); } catch(e){}
+}
+
+function openModal(d, anchor) {
+  activeModalDay = d;
+  const modal = document.getElementById('eventModal');
+  document.getElementById('eventInput').value = '';
+  const wrap = document.querySelector('.relative').getBoundingClientRect();
+  const rect = anchor.getBoundingClientRect();
+  modal.style.display = 'block';
+  modal.style.top = (rect.bottom - wrap.top + 4) + 'px';
+  modal.style.left = Math.min(rect.left - wrap.left, wrap.width - 210) + 'px';
+  document.getElementById('eventInput').focus();
+}
+
+function closeModal() {
+  document.getElementById('eventModal').style.display = 'none';
+  activeModalDay = null;
+}
+
+function addEvent() {
+  const val = document.getElementById('eventInput').value.trim();
+  if (!val || !activeModalDay) { closeModal(); return; }
+  const st = getState();
+  if (!st.events[activeModalDay]) st.events[activeModalDay] = [];
+  st.events[activeModalDay].push(val);
+  closeModal();
+  buildCalendar(2026, MONTHS[curIdx], st);
+  recalc();
+}
+
+function removeEvent(d,i) {
+  const st = getState();
+  if (!st.events[d]) return;
+  st.events[d].splice(i,1);
+  buildCalendar(2026, MONTHS[curIdx], st);
+}
+
+document.getElementById('eventInput').addEventListener('keydown', e => {
+  if (e.key==='Enter') addEvent();
+  if (e.key==='Escape') closeModal();
+});
+
+document.addEventListener('click', e => {
+  const modal = document.getElementById('eventModal');
+  if (modal.style.display==='block' && !modal.contains(e.target) && !e.target.closest('.add-event-btn')) closeModal();
+});
+
+loadData();
+renderMonth();
+</script>

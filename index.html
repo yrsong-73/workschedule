@@ -103,8 +103,10 @@
 
   <div class="target-row">
     <label for="targetHours">이번 달 목표 근무시간</label>
-    <input type="number" id="targetHours" value="" placeholder="0" min="0" max="300" oninput="onTargetChange()" />
-    <span>시간</span>
+  <input type="number" id="targetHours" value="" placeholder="0" min="0" max="300" oninput="onTargetChange()" />
+  <span>시간</span>
+  <input type="number" id="targetMins" value="" placeholder="0" min="0" max="59" oninput="onTargetChange()" />
+  <span>분</span>
     <button class="btn-save" id="saveBtn" onclick="saveData()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
@@ -205,7 +207,7 @@ function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
 
 function initMonth(y, m) {
   const k = hkey(y, m);
-  if (!state[k]) state[k] = { target: '', days: {}, events: {}, meals: {} };
+if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {} };
   // 기존 데이터에 meals 필드 없을 경우 보완
   if (!state[k].meals) state[k].meals = {};
 }
@@ -224,7 +226,8 @@ function renderMonth() {
   initMonth(y, m);
   const st = getState();
   document.getElementById('monthLabel').textContent = y + '년 ' + m + '월';
-  document.getElementById('targetHours').value = st.target;
+document.getElementById('targetHours').value = st.target;
+document.getElementById('targetMins').value = st.targetMins || '';
   document.getElementById('saveNotice').style.display = 'none';
   document.getElementById('saveBtn').classList.remove('saved');
   buildCalendar(y, m, st);
@@ -405,10 +408,12 @@ function recalc() {
   document.getElementById('totalHours').textContent = fmtMins(total);
   document.getElementById('workDays').textContent = cnt + '일';
   document.getElementById('mealDays').textContent = mealCnt + '일';
-  const tgt = parseFloat(document.getElementById('targetHours').value) || 0;
+const tgtH = parseFloat(document.getElementById('targetHours').value) || 0;
+const tgtM = parseFloat(document.getElementById('targetMins').value) || 0;
+const tgt = tgtH * 60 + tgtM; // 총 분 단위
   const diffEl = document.getElementById('diffHours');
   if (!tgt) { diffEl.textContent = '-'; diffEl.className = 'card-value neu'; return; }
-  const diff = tgt * 60 - total;
+  const diff = tgt - total;
   if (diff > 0) { diffEl.textContent = '+' + fmtMins(diff) + ' 필요'; diffEl.className = 'card-value neg'; }
   else if (diff < 0) { diffEl.textContent = fmtMins(-diff) + ' 초과'; diffEl.className = 'card-value pos'; }
   else { diffEl.textContent = '딱 맞음!'; diffEl.className = 'card-value pos'; }
@@ -416,6 +421,7 @@ function recalc() {
 
 function onTargetChange() {
   getState().target = document.getElementById('targetHours').value;
+  getState().targetMins = document.getElementById('targetMins').value;
   recalc();
 }
 

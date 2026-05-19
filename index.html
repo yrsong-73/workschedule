@@ -66,6 +66,14 @@
     .day-cell.day-sat .time-fields input[type=time],
     .day-cell.day-sun .time-fields input[type=time],
     .day-cell.day-holiday .time-fields input[type=time] { background: rgba(255,255,255,0.5); }
+
+    /* 식대 체크박스 */
+    .meal-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+    .meal-row input[type=checkbox] { width: 11px; height: 11px; accent-color: #E07B2A; cursor: pointer; flex-shrink: 0; }
+    .meal-row label { font-size: 10px; color: var(--color-text-secondary); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 3px; }
+    .meal-row label .meal-deduct { font-size: 9px; color: #E07B2A; }
+    .meal-checked-tag { font-size: 9px; background: #FEF3E8; color: #C05A1A; border-radius: 3px; padding: 1px 4px; display: inline-block; }
+
     .day-hours { font-size: 12px; font-weight: 500; color: #1D9E75; text-align: center; margin-top: auto; padding-top: 2px; }
     .day-hours.zero { color: var(--color-text-tertiary); }
     .cal-wrap { position: relative; }
@@ -116,6 +124,7 @@
     <div class="card"><div class="card-label">총 근무시간</div><div class="card-value" id="totalHours">0h</div></div>
     <div class="card"><div class="card-label">목표까지</div><div class="card-value neu" id="diffHours">-</div></div>
     <div class="card"><div class="card-label">입력된 날</div><div class="card-value" id="workDays">0일</div></div>
+    <div class="card"><div class="card-label">식대 차감일</div><div class="card-value" id="mealDays">0일</div></div>
   </div>
 
   <div class="cal-wrap">
@@ -131,17 +140,14 @@
 </div>
 
 <script>
-// ── 현재 날짜 기준으로 시작 ──────────────────────────────
 const today = new Date();
 let curYear = today.getFullYear();
-let curMonth = today.getMonth() + 1; // 1~12
+let curMonth = today.getMonth() + 1;
 
 let state = {};
 let activeModalDay = null;
 
-// ── 한국 공휴일 (연도별로 확장 가능) ────────────────────
 const HOLIDAYS = {
-  // 2024
   '2024-1':  { 1: '신정' },
   '2024-2':  { 9: '설날연휴', 10: '설날', 11: '설날연휴' },
   '2024-3':  { 1: '삼일절' },
@@ -154,7 +160,6 @@ const HOLIDAYS = {
   '2024-10': { 3: '개천절', 9: '한글날' },
   '2024-11': {},
   '2024-12': { 25: '크리스마스' },
-  // 2025
   '2025-1':  { 1: '신정', 28: '설날연휴', 29: '설날', 30: '설날연휴' },
   '2025-2':  {},
   '2025-3':  { 1: '삼일절', 3: '대체공휴일' },
@@ -167,7 +172,6 @@ const HOLIDAYS = {
   '2025-10': { 3: '개천절', 9: '한글날' },
   '2025-11': {},
   '2025-12': { 25: '크리스마스' },
-  // 2026
   '2026-1':  { 1: '신정' },
   '2026-2':  { 16: '설날연휴', 17: '설날', 18: '설날연휴', 19: '대체공휴일' },
   '2026-3':  { 1: '삼일절', 2: '대체공휴일' },
@@ -180,7 +184,6 @@ const HOLIDAYS = {
   '2026-10': { 3: '개천절', 9: '한글날' },
   '2026-11': {},
   '2026-12': { 25: '크리스마스' },
-  // 2027
   '2027-1':  { 1: '신정' },
   '2027-2':  { 6: '설날연휴', 7: '설날', 8: '설날연휴', 9: '대체공휴일' },
   '2027-3':  { 1: '삼일절' },
@@ -195,12 +198,16 @@ const HOLIDAYS = {
   '2027-12': { 25: '크리스마스', 27: '대체공휴일' },
 };
 
+const MEAL_DEDUCT = 30; // 분
+
 function hkey(y, m) { return y + '-' + m; }
 function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
 
 function initMonth(y, m) {
   const k = hkey(y, m);
-  if (!state[k]) state[k] = { target: '', days: {}, events: {} };
+  if (!state[k]) state[k] = { target: '', days: {}, events: {}, meals: {} };
+  // 기존 데이터에 meals 필드 없을 경우 보완
+  if (!state[k].meals) state[k].meals = {};
 }
 
 function getState() { return state[hkey(curYear, curMonth)]; }
@@ -249,6 +256,7 @@ function buildCalendar(y, m, st) {
     const startVal = saved.start !== undefined ? saved.start : (off ? '' : '09:00');
     const endVal = saved.end !== undefined ? saved.end : (off ? '' : '18:00');
     const evts = st.events[d] || [];
+    const mealChecked = !!st.meals[d];
 
     let cellClass = 'day-cell';
     if (isSat) cellClass += ' day-sat';
@@ -258,11 +266,13 @@ function buildCalendar(y, m, st) {
     const cell = document.createElement('div');
     cell.className = cellClass;
 
+    // 날짜 번호
     const numEl = document.createElement('div');
     numEl.className = 'day-num';
     numEl.textContent = d;
     cell.appendChild(numEl);
 
+    // 공휴일 라벨
     if (holiday) {
       const hl = document.createElement('div');
       hl.className = 'holiday-label';
@@ -270,6 +280,7 @@ function buildCalendar(y, m, st) {
       cell.appendChild(hl);
     }
 
+    // 이벤트 영역
     const evtArea = document.createElement('div');
     evtArea.className = 'event-area';
     evtArea.id = 'evts_' + d;
@@ -286,6 +297,7 @@ function buildCalendar(y, m, st) {
     evtArea.appendChild(addBtn);
     cell.appendChild(evtArea);
 
+    // 시간 입력
     const tf = document.createElement('div');
     tf.className = 'time-fields';
     const si = document.createElement('input');
@@ -297,6 +309,23 @@ function buildCalendar(y, m, st) {
     tf.appendChild(si); tf.appendChild(ei);
     cell.appendChild(tf);
 
+    // 식대 체크박스
+    const mealRow = document.createElement('div');
+    mealRow.className = 'meal-row';
+    const cbId = 'meal_' + d;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = cbId;
+    cb.checked = mealChecked;
+    cb.onchange = () => onMealChange(d, cb.checked);
+    const lbl = document.createElement('label');
+    lbl.htmlFor = cbId;
+    lbl.innerHTML = `식대 <span class="meal-deduct">(-30분)</span>`;
+    mealRow.appendChild(cb);
+    mealRow.appendChild(lbl);
+    cell.appendChild(mealRow);
+
+    // 일별 근무시간 표시
     const hEl = document.createElement('div');
     hEl.id = 'h_' + d;
     hEl.className = 'day-hours zero';
@@ -306,6 +335,17 @@ function buildCalendar(y, m, st) {
     grid.appendChild(cell);
     updateDayHours(d);
   }
+}
+
+function onMealChange(d, checked) {
+  const st = getState();
+  if (checked) {
+    st.meals[d] = true;
+  } else {
+    delete st.meals[d];
+  }
+  updateDayHours(d);
+  recalc();
 }
 
 function onTimeChange(d) {
@@ -324,10 +364,13 @@ function updateDayHours(d) {
   const el = document.getElementById('h_' + d);
   if (!el) return;
   if (!sv || !ev) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
-  const mins = timeDiff(sv, ev);
+  let mins = timeDiff(sv, ev);
   if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
+  // 식대 차감
+  const st = getState();
+  if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
   el.textContent = fmtMins(mins);
-  el.className = 'day-hours';
+  el.className = mins > 0 ? 'day-hours' : 'day-hours zero';
 }
 
 function timeDiff(s, e) {
@@ -344,16 +387,24 @@ function fmtMins(m) {
 function recalc() {
   const y = curYear, m = curMonth;
   const days = new Date(y, m, 0).getDate();
-  let total = 0, cnt = 0;
+  const st = getState();
+  let total = 0, cnt = 0, mealCnt = 0;
   for (let d = 1; d <= days; d++) {
     const sv = document.getElementById('s_' + d)?.value || '';
     const ev = document.getElementById('e_' + d)?.value || '';
     if (!sv || !ev) continue;
-    const mins = timeDiff(sv, ev);
-    if (mins > 0) { total += mins; cnt++; }
+    let mins = timeDiff(sv, ev);
+    if (mins <= 0) continue;
+    cnt++;
+    if (st.meals[d]) {
+      mins = Math.max(0, mins - MEAL_DEDUCT);
+      mealCnt++;
+    }
+    total += mins;
   }
   document.getElementById('totalHours').textContent = fmtMins(total);
   document.getElementById('workDays').textContent = cnt + '일';
+  document.getElementById('mealDays').textContent = mealCnt + '일';
   const tgt = parseFloat(document.getElementById('targetHours').value) || 0;
   const diffEl = document.getElementById('diffHours');
   if (!tgt) { diffEl.textContent = '-'; diffEl.className = 'card-value neu'; return; }

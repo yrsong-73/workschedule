@@ -90,24 +90,24 @@
     .btn-flex:hover { background: #EEF2FF; }
     .flex-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; align-items: center; justify-content: center; }
     .flex-modal-overlay.open { display: flex; }
-    .flex-modal { background: var(--color-background-primary); border-radius: var(--border-radius-lg); padding: 24px; width: 480px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
-    .flex-modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--color-text-primary); }
-    .flex-modal-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
-    .flex-modal-step-num { width: 22px; height: 22px; border-radius: 50%; background: #4F46E5; color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
-    .flex-modal-step p { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+    .flex-modal { background: var(--color-background-primary); border-radius: var(--border-radius-lg); padding: 24px; width: 460px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .flex-modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--color-text-primary); }
+    .flex-modal-desc { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 16px; }
+    .flex-modal-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+    .flex-modal-step-num { width: 20px; height: 20px; border-radius: 50%; background: #4F46E5; color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .flex-modal-step p { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; }
     .flex-modal-step p strong { color: var(--color-text-primary); }
-    .bookmarklet-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px; margin: 16px 0; }
-    .bookmarklet-wrap p { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px; }
-    .bookmarklet-link { display: inline-block; background: #4F46E5; color: white; border-radius: var(--border-radius-md); padding: 8px 16px; font-size: 13px; font-weight: 500; text-decoration: none; cursor: grab; border: 2px dashed transparent; }
+    .bookmarklet-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 14px; margin: 10px 0 16px; display: flex; align-items: center; gap: 10px; }
+    .bookmarklet-wrap span { font-size: 12px; color: var(--color-text-secondary); }
+    .bookmarklet-link { display: inline-block; background: #4F46E5; color: white !important; border-radius: var(--border-radius-md); padding: 7px 14px; font-size: 13px; font-weight: 500; text-decoration: none; cursor: grab; white-space: nowrap; }
     .bookmarklet-link:hover { background: #4338CA; }
-    .bookmarklet-link:active { cursor: grabbing; }
     .flex-modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
     .flex-modal-btns button { font-size: 13px; padding: 8px 16px; border-radius: var(--border-radius-md); cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: none; color: var(--color-text-primary); }
     .flex-modal-btns button.primary { background: #4F46E5; color: white; border-color: #4F46E5; }
     .flex-modal-btns button.primary:hover { background: #4338CA; }
-    .flex-sync-status { font-size: 13px; color: #1D9E75; display: none; align-items: center; gap: 6px; padding: 10px 12px; background: #E6F7F1; border-radius: var(--border-radius-md); margin-bottom: 12px; }
-    .flex-sync-status.show { display: flex; }
-    .flex-sync-status.error { color: #E24B4A; background: #FEE2E2; }
+    .flex-sync-status { font-size: 13px; display: none; align-items: center; gap: 6px; padding: 8px 12px; border-radius: var(--border-radius-md); margin-bottom: 12px; }
+    .flex-sync-status.ok { display: flex; color: #1D9E75; background: #E6F7F1; }
+    .flex-sync-status.err { display: flex; color: #E24B4A; background: #FEE2E2; }
   </style>
 </head>
 <body>
@@ -134,23 +134,20 @@
   <!-- Flex 연동 모달 -->
   <div class="flex-modal-overlay" id="flexModalOverlay" onclick="closeFlexModal(event)">
     <div class="flex-modal">
-      <h3>Flex 근무기록 가져오기</h3>
+      <h3>Flex 근무기록 연동</h3>
+      <p class="flex-modal-desc">처음 한 번만 북마클릿 설치 → 이후엔 2클릭으로 연동</p>
       <div class="flex-sync-status" id="flexSyncStatus"></div>
       <div class="flex-modal-step">
         <div class="flex-modal-step-num">1</div>
-        <p>아래 버튼을 북마크바로 <strong>드래그</strong>하여 북마클릿을 설치하세요.<br><small>(북마크바가 안 보이면 Ctrl+Shift+B)</small></p>
+        <p>아래 버튼을 <strong>북마크바로 드래그</strong>해서 저장<br><small style="color:var(--color-text-tertiary)">북마크바가 없으면 Ctrl+Shift+B</small></p>
       </div>
       <div class="bookmarklet-wrap">
-        <p>북마크바로 드래그하세요 →</p>
-        <a id="flexBookmarklet" class="bookmarklet-link" href="#">📋 Flex 근무기록 전송</a>
+        <span>드래그 →</span>
+        <a id="flexBookmarklet" class="bookmarklet-link" href="#">&#128203; Flex&#8594;앱 전송</a>
       </div>
       <div class="flex-modal-step">
         <div class="flex-modal-step-num">2</div>
-        <p>아래 버튼을 눌러 <strong>Flex 근무기록 페이지</strong>를 여세요.</p>
-      </div>
-      <div class="flex-modal-step">
-        <div class="flex-modal-step-num">3</div>
-        <p>Flex 페이지에서 <strong>북마클릿을 클릭</strong>하면 이 달의 근무기록이 자동으로 불러와집니다.</p>
+        <p><strong>"Flex 열기"</strong> 클릭 → 근무기록 페이지로 이동 → <strong>북마클릿 클릭</strong></p>
       </div>
       <div class="flex-modal-btns">
         <button onclick="closeFlexModal()">닫기</button>
@@ -258,15 +255,14 @@ const HOLIDAYS = {
   '2027-12': { 25: '크리스마스', 27: '대체공휴일' },
 };
 
-const MEAL_DEDUCT = 30; // 분
+const MEAL_DEDUCT = 30;
 
 function hkey(y, m) { return y + '-' + m; }
 function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
 
 function initMonth(y, m) {
   const k = hkey(y, m);
-if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {} };
-  // 기존 데이터에 meals 필드 없을 경우 보완
+  if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {} };
   if (!state[k].meals) state[k].meals = {};
 }
 
@@ -284,8 +280,8 @@ function renderMonth() {
   initMonth(y, m);
   const st = getState();
   document.getElementById('monthLabel').textContent = y + '년 ' + m + '월';
-document.getElementById('targetHours').value = st.target;
-document.getElementById('targetMins').value = st.targetMins || '';
+  document.getElementById('targetHours').value = st.target;
+  document.getElementById('targetMins').value = st.targetMins || '';
   document.getElementById('saveNotice').style.display = 'none';
   document.getElementById('saveBtn').classList.remove('saved');
   buildCalendar(y, m, st);
@@ -329,13 +325,11 @@ function buildCalendar(y, m, st) {
     const cell = document.createElement('div');
     cell.className = cellClass;
 
-    // 날짜 번호
     const numEl = document.createElement('div');
     numEl.className = 'day-num';
     numEl.textContent = d;
     cell.appendChild(numEl);
 
-    // 공휴일 라벨
     if (holiday) {
       const hl = document.createElement('div');
       hl.className = 'holiday-label';
@@ -343,14 +337,13 @@ function buildCalendar(y, m, st) {
       cell.appendChild(hl);
     }
 
-    // 이벤트 영역
     const evtArea = document.createElement('div');
     evtArea.className = 'event-area';
     evtArea.id = 'evts_' + d;
     evts.forEach((ev, i) => {
       const tag = document.createElement('div');
       tag.className = 'event-tag';
-      tag.innerHTML = `<span>${ev}</span><button onclick="removeEvent(${d},${i})" title="삭제">✕</button>`;
+      tag.innerHTML = '<span>' + ev + '</span><button onclick="removeEvent(' + d + ',' + i + ')" title="삭제">✕</button>';
       evtArea.appendChild(tag);
     });
     const addBtn = document.createElement('button');
@@ -360,7 +353,6 @@ function buildCalendar(y, m, st) {
     evtArea.appendChild(addBtn);
     cell.appendChild(evtArea);
 
-    // 시간 입력
     const tf = document.createElement('div');
     tf.className = 'time-fields';
     const si = document.createElement('input');
@@ -372,7 +364,6 @@ function buildCalendar(y, m, st) {
     tf.appendChild(si); tf.appendChild(ei);
     cell.appendChild(tf);
 
-    // 식대 체크박스
     const mealRow = document.createElement('div');
     mealRow.className = 'meal-row';
     const cbId = 'meal_' + d;
@@ -383,12 +374,11 @@ function buildCalendar(y, m, st) {
     cb.onchange = () => onMealChange(d, cb.checked);
     const lbl = document.createElement('label');
     lbl.htmlFor = cbId;
-    lbl.innerHTML = `식대 <span class="meal-deduct">(-30분)</span>`;
+    lbl.innerHTML = '식대 <span class="meal-deduct">(-30분)</span>';
     mealRow.appendChild(cb);
     mealRow.appendChild(lbl);
     cell.appendChild(mealRow);
 
-    // 일별 근무시간 표시
     const hEl = document.createElement('div');
     hEl.id = 'h_' + d;
     hEl.className = 'day-hours zero';
@@ -399,7 +389,6 @@ function buildCalendar(y, m, st) {
     updateDayHours(d);
   }
 
-  // 오늘 날짜 셀로 스크롤 (현재 달인 경우)
   if (y === today.getFullYear() && m === today.getMonth() + 1) {
     requestAnimationFrame(() => {
       const todayCell = grid.querySelector('.day-today');
@@ -410,11 +399,8 @@ function buildCalendar(y, m, st) {
 
 function onMealChange(d, checked) {
   const st = getState();
-  if (checked) {
-    st.meals[d] = true;
-  } else {
-    delete st.meals[d];
-  }
+  if (checked) st.meals[d] = true;
+  else delete st.meals[d];
   updateDayHours(d);
   recalc();
 }
@@ -437,7 +423,6 @@ function updateDayHours(d) {
   if (!sv || !ev) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
   let mins = timeDiff(sv, ev);
   if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
-  // 식대 차감
   const st = getState();
   if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
   el.textContent = fmtMins(mins);
@@ -476,9 +461,9 @@ function recalc() {
   document.getElementById('totalHours').textContent = fmtMins(total);
   document.getElementById('workDays').textContent = cnt + '일';
   document.getElementById('mealDays').textContent = mealCnt + '일';
-const tgtH = parseFloat(document.getElementById('targetHours').value) || 0;
-const tgtM = parseFloat(document.getElementById('targetMins').value) || 0;
-const tgt = tgtH * 60 + tgtM; // 총 분 단위
+  const tgtH = parseFloat(document.getElementById('targetHours').value) || 0;
+  const tgtM = parseFloat(document.getElementById('targetMins').value) || 0;
+  const tgt = tgtH * 60 + tgtM;
   const diffEl = document.getElementById('diffHours');
   if (!tgt) { diffEl.textContent = '-'; diffEl.className = 'card-value neu'; return; }
   const diff = tgt - total;
@@ -554,46 +539,63 @@ document.addEventListener('click', e => {
 
 // ── Flex 연동 ──────────────────────────────────────────────
 
-function buildBookmarklet() {
-  const appOrigin = location.origin || 'null';
-  const appHref = location.href.split('?')[0].split('#')[0];
-  const code = `(function(){
-var ap='${appHref}';
-var ao='${appOrigin}';
-var win=window.__flexAppWin;
-function send(d){if(win&&!win.closed){win.postMessage({type:'FLEX_RECORDS',data:d},'*');}else{var t=document.createElement('textarea');t.value=JSON.stringify(d);t.style.cssText='position:fixed;top:10px;left:10px;width:90vw;height:60px;z-index:99999;font-size:11px;';document.body.appendChild(t);t.select();document.execCommand('copy');alert('데이터 복사 완료! 앱으로 돌아가서 "붙여넣기로 가져오기"를 사용하세요.');}};
-function fmt(s){if(!s)return '';var d=new Date(s);var h=d.getHours().toString().padStart(2,'0');var m=d.getMinutes().toString().padStart(2,'0');return h+':'+m;}
-function parse(json){
-  var records=[];
-  var str=JSON.stringify(json);
-  var arr=null;
-  if(json&&json.data&&Array.isArray(json.data))arr=json.data;
-  else if(json&&Array.isArray(json))arr=json;
-  else{var m=str.match(/"(?:workLogs|records|attendances|timeLogs|dailyRecords)"\s*:\s*(\[[\s\S]*?\])/);if(m){try{arr=JSON.parse(m[1]);}catch(e){}}}
-  if(!arr)return null;
-  arr.forEach(function(r){
-    var dateStr=r.date||r.workDate||r.workDay||r.day||'';
-    var start=r.startAt||r.workStartAt||r.clockIn||r.startTime||r.checkin||'';
-    var end=r.endAt||r.workEndAt||r.clockOut||r.endTime||r.checkout||'';
-    if(!dateStr)return;
-    var d=new Date(dateStr);
-    if(isNaN(d.getTime()))return;
-    records.push({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),start:fmt(start||dateStr+'T'+r.startTime),end:fmt(end||dateStr+'T'+r.endTime)});
-  });
-  return records.length?records:null;
-}
-var orig=window.fetch;
-window.fetch=function(){return orig.apply(this,arguments).then(function(res){var cl=res.clone();cl.json().then(function(j){var r=parse(j);if(r){window._flexRecords=(window._flexRecords||[]).concat(r);}}).catch(function(){});return res;});};
-var ox=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;
-XMLHttpRequest.prototype.open=function(m,u){this._u=u;return ox.apply(this,arguments);};
-XMLHttpRequest.prototype.send=function(){var self=this;var orig2=this.onreadystatechange;this.onreadystatechange=function(){if(self.readyState===4){try{var j=JSON.parse(self.responseText);var r=parse(j);if(r)window._flexRecords=(window._flexRecords||[]).concat(r);}catch(e){}if(orig2)orig2.apply(self,arguments);}};return os.apply(this,arguments);};
-setTimeout(function(){if(window._flexRecords&&window._flexRecords.length){send(window._flexRecords);window._flexRecords=[];}else{alert('근무기록을 찾지 못했습니다.\\n페이지가 완전히 로드된 후 다시 시도해주세요.');}},3000);
-location.reload();
-})();`;
-  return 'javascript:' + encodeURIComponent(code);
-}
-
 let flexWin = null;
+
+function buildBookmarklet() {
+  // 북마클릿: flex.team 페이지에서 실행, API 직접 호출 후 postMessage로 전송
+  // location.reload() 없음 - 즉시 API 호출
+  var parts = [
+    '(function(){',
+    'var win=window.opener||window.__appWin;',
+    'function fmt(s){if(!s)return "";var d=new Date(s);if(isNaN(d))return "";return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0");}',
+    'function extract(json){',
+    '  var recs=[];',
+    '  function walk(v,dep){',
+    '    if(!v||dep>7)return;',
+    '    if(Array.isArray(v)){',
+    '      var s=v.find(function(x){return x&&typeof x==="object"&&(x.date||x.workDate||x.targetDate||x.workDay||x.startAt||x.workStartAt);});',
+    '      if(s){v.forEach(function(r){',
+    '        var ds=r.date||r.workDate||r.targetDate||r.workDay||"";',
+    '        var st=r.startAt||r.workStartAt||r.clockIn||r.startTime||"";',
+    '        var en=r.endAt||r.workEndAt||r.clockOut||r.endTime||"";',
+    '        if(!ds)return;var d=new Date(ds);if(isNaN(d))return;',
+    '        recs.push({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),start:fmt(st),end:fmt(en)});',
+    '      });return;}',
+    '      v.forEach(function(x){walk(x,dep+1);});',
+    '    }else if(v&&typeof v==="object"){Object.values(v).forEach(function(x){walk(x,dep+1);});}',
+    '  }',
+    '  walk(json,0);return recs;',
+    '}',
+    'function send(recs){',
+    '  if(!recs||!recs.length){alert("근무기록을 찾지 못했습니다.\\nNetwork탭>Fetch/XHR에서 API경로를 확인해주세요.");return;}',
+    '  if(win&&!win.closed){win.postMessage({type:"FLEX_RECORDS",data:recs},"*");alert(recs.length+"개 기록 전송 완료!");}',
+    '  else{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(recs));alert("앱 창이 없어 클립보드에 복사했습니다.");}',
+    '}',
+    'var now=new Date(),y=now.getFullYear(),mo=now.getMonth()+1;',
+    'var eps=[',
+    '  "/api/v2/attendance/work-logs?year="+y+"&month="+mo,',
+    '  "/api/v1/attendance/work-logs?year="+y+"&month="+mo,',
+    '  "/api/attendance/work-logs?year="+y+"&month="+mo,',
+    '  "/api/v2/time-tracking/work-records?year="+y+"&month="+mo,',
+    '  "/api/v1/time-tracking/work-records?year="+y+"&month="+mo,',
+    '  "/api/time-tracking/work-records?year="+y+"&month="+mo,',
+    '  "/api/v2/work-records?year="+y+"&month="+mo,',
+    '  "/api/work-records?year="+y+"&month="+mo,',
+    '];',
+    'var idx=0;',
+    'function tryNext(){',
+    '  if(idx>=eps.length){send(null);return;}',
+    '  var url=eps[idx++];',
+    '  fetch(url,{credentials:"include",headers:{"Accept":"application/json","X-Requested-With":"XMLHttpRequest"}})',
+    '    .then(function(r){if(!r.ok)throw r.status;return r.json();})',
+    '    .then(function(j){var r=extract(j);if(r.length)send(r);else tryNext();})',
+    '    .catch(function(){tryNext();});',
+    '}',
+    'tryNext();',
+    '})();'
+  ];
+  return 'javascript:' + encodeURIComponent(parts.join(''));
+}
 
 function openFlexModal() {
   document.getElementById('flexModalOverlay').classList.add('open');
@@ -608,7 +610,7 @@ function closeFlexModal(e) {
 
 function openFlexPage() {
   flexWin = window.open('https://flex.team/time-tracking/my-work-record', 'flexWin', 'width=1200,height=800');
-  if (flexWin) flexWin.__flexAppWin = window;
+  if (flexWin) flexWin.__appWin = window;
 }
 
 window.addEventListener('message', function(e) {
@@ -617,7 +619,7 @@ window.addEventListener('message', function(e) {
 });
 
 function importFlexRecords(records) {
-  if (!Array.isArray(records) || records.length === 0) return;
+  if (!Array.isArray(records) || !records.length) return;
   let imported = 0;
   records.forEach(function(r) {
     if (!r.year || !r.month || !r.day) return;
@@ -633,8 +635,9 @@ function importFlexRecords(records) {
   renderMonth();
   const st = document.getElementById('flexSyncStatus');
   st.textContent = imported + '개 근무기록을 불러왔습니다.';
-  st.className = 'flex-sync-status show';
+  st.className = 'flex-sync-status ok';
   if (flexWin && !flexWin.closed) flexWin.close();
+  document.getElementById('flexModalOverlay').classList.add('open');
 }
 
 loadData();

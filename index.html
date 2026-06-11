@@ -76,12 +76,38 @@
 
     .day-hours { font-size: 12px; font-weight: 500; color: #1D9E75; text-align: center; margin-top: auto; padding-top: 2px; }
     .day-hours.zero { color: var(--color-text-tertiary); }
+    .day-cell.day-today { outline: 2px solid #4F46E5; outline-offset: -1px; }
+    .day-cell.day-today .day-num { color: #4F46E5; font-weight: 700; }
     .cal-wrap { position: relative; }
     .event-modal { display: none; position: fixed; background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-lg); padding: 14px; z-index: 100; width: 200px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
     .event-modal input[type=text] { width: 100%; font-size: 13px; padding: 6px 8px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); margin-bottom: 8px; }
     .event-modal-btns { display: flex; gap: 6px; }
     .event-modal-btns button { flex: 1; font-size: 12px; padding: 6px; border-radius: var(--border-radius-md); cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: none; color: var(--color-text-primary); }
     .event-modal-btns button.confirm { background: var(--color-background-secondary); }
+
+    /* Flex 연동 */
+    .btn-flex { background: none; border: 0.5px solid #4F46E5; border-radius: var(--border-radius-md); padding: 8px 16px; font-size: 14px; color: #4F46E5; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .btn-flex:hover { background: #EEF2FF; }
+    .flex-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; align-items: center; justify-content: center; }
+    .flex-modal-overlay.open { display: flex; }
+    .flex-modal { background: var(--color-background-primary); border-radius: var(--border-radius-lg); padding: 24px; width: 480px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .flex-modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--color-text-primary); }
+    .flex-modal-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+    .flex-modal-step-num { width: 22px; height: 22px; border-radius: 50%; background: #4F46E5; color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .flex-modal-step p { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+    .flex-modal-step p strong { color: var(--color-text-primary); }
+    .bookmarklet-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px; margin: 16px 0; }
+    .bookmarklet-wrap p { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px; }
+    .bookmarklet-link { display: inline-block; background: #4F46E5; color: white; border-radius: var(--border-radius-md); padding: 8px 16px; font-size: 13px; font-weight: 500; text-decoration: none; cursor: grab; border: 2px dashed transparent; }
+    .bookmarklet-link:hover { background: #4338CA; }
+    .bookmarklet-link:active { cursor: grabbing; }
+    .flex-modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .flex-modal-btns button { font-size: 13px; padding: 8px 16px; border-radius: var(--border-radius-md); cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: none; color: var(--color-text-primary); }
+    .flex-modal-btns button.primary { background: #4F46E5; color: white; border-color: #4F46E5; }
+    .flex-modal-btns button.primary:hover { background: #4338CA; }
+    .flex-sync-status { font-size: 13px; color: #1D9E75; display: none; align-items: center; gap: 6px; padding: 10px 12px; background: #E6F7F1; border-radius: var(--border-radius-md); margin-bottom: 12px; }
+    .flex-sync-status.show { display: flex; }
+    .flex-sync-status.error { color: #E24B4A; background: #FEE2E2; }
   </style>
 </head>
 <body>
@@ -98,6 +124,38 @@
       <button onclick="changeMonth(-1)" aria-label="이전 달">&#8249;</button>
       <span class="month-label" id="monthLabel"></span>
       <button onclick="changeMonth(1)" aria-label="다음 달">&#8250;</button>
+    </div>
+    <button class="btn-flex" onclick="openFlexModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Flex 연동
+    </button>
+  </div>
+
+  <!-- Flex 연동 모달 -->
+  <div class="flex-modal-overlay" id="flexModalOverlay" onclick="closeFlexModal(event)">
+    <div class="flex-modal">
+      <h3>Flex 근무기록 가져오기</h3>
+      <div class="flex-sync-status" id="flexSyncStatus"></div>
+      <div class="flex-modal-step">
+        <div class="flex-modal-step-num">1</div>
+        <p>아래 버튼을 북마크바로 <strong>드래그</strong>하여 북마클릿을 설치하세요.<br><small>(북마크바가 안 보이면 Ctrl+Shift+B)</small></p>
+      </div>
+      <div class="bookmarklet-wrap">
+        <p>북마크바로 드래그하세요 →</p>
+        <a id="flexBookmarklet" class="bookmarklet-link" href="#">📋 Flex 근무기록 전송</a>
+      </div>
+      <div class="flex-modal-step">
+        <div class="flex-modal-step-num">2</div>
+        <p>아래 버튼을 눌러 <strong>Flex 근무기록 페이지</strong>를 여세요.</p>
+      </div>
+      <div class="flex-modal-step">
+        <div class="flex-modal-step-num">3</div>
+        <p>Flex 페이지에서 <strong>북마클릿을 클릭</strong>하면 이 달의 근무기록이 자동으로 불러와집니다.</p>
+      </div>
+      <div class="flex-modal-btns">
+        <button onclick="closeFlexModal()">닫기</button>
+        <button class="primary" onclick="openFlexPage()">Flex 열기</button>
+      </div>
     </div>
   </div>
 
@@ -261,10 +319,12 @@ function buildCalendar(y, m, st) {
     const evts = st.events[d] || [];
     const mealChecked = !!st.meals[d];
 
+    const isToday = (y === today.getFullYear() && m === today.getMonth() + 1 && d === today.getDate());
     let cellClass = 'day-cell';
     if (isSat) cellClass += ' day-sat';
     else if (isSun) cellClass += ' day-sun';
     if (holiday) cellClass += ' day-holiday';
+    if (isToday) cellClass += ' day-today';
 
     const cell = document.createElement('div');
     cell.className = cellClass;
@@ -337,6 +397,14 @@ function buildCalendar(y, m, st) {
 
     grid.appendChild(cell);
     updateDayHours(d);
+  }
+
+  // 오늘 날짜 셀로 스크롤 (현재 달인 경우)
+  if (y === today.getFullYear() && m === today.getMonth() + 1) {
+    requestAnimationFrame(() => {
+      const todayCell = grid.querySelector('.day-today');
+      if (todayCell) todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
 }
 
@@ -483,6 +551,91 @@ document.addEventListener('click', e => {
   const modal = document.getElementById('eventModal');
   if (modal.style.display === 'block' && !modal.contains(e.target) && !e.target.closest('.add-event-btn')) closeModal();
 });
+
+// ── Flex 연동 ──────────────────────────────────────────────
+
+function buildBookmarklet() {
+  const appOrigin = location.origin || 'null';
+  const appHref = location.href.split('?')[0].split('#')[0];
+  const code = `(function(){
+var ap='${appHref}';
+var ao='${appOrigin}';
+var win=window.__flexAppWin;
+function send(d){if(win&&!win.closed){win.postMessage({type:'FLEX_RECORDS',data:d},'*');}else{var t=document.createElement('textarea');t.value=JSON.stringify(d);t.style.cssText='position:fixed;top:10px;left:10px;width:90vw;height:60px;z-index:99999;font-size:11px;';document.body.appendChild(t);t.select();document.execCommand('copy');alert('데이터 복사 완료! 앱으로 돌아가서 "붙여넣기로 가져오기"를 사용하세요.');}};
+function fmt(s){if(!s)return '';var d=new Date(s);var h=d.getHours().toString().padStart(2,'0');var m=d.getMinutes().toString().padStart(2,'0');return h+':'+m;}
+function parse(json){
+  var records=[];
+  var str=JSON.stringify(json);
+  var arr=null;
+  if(json&&json.data&&Array.isArray(json.data))arr=json.data;
+  else if(json&&Array.isArray(json))arr=json;
+  else{var m=str.match(/"(?:workLogs|records|attendances|timeLogs|dailyRecords)"\s*:\s*(\[[\s\S]*?\])/);if(m){try{arr=JSON.parse(m[1]);}catch(e){}}}
+  if(!arr)return null;
+  arr.forEach(function(r){
+    var dateStr=r.date||r.workDate||r.workDay||r.day||'';
+    var start=r.startAt||r.workStartAt||r.clockIn||r.startTime||r.checkin||'';
+    var end=r.endAt||r.workEndAt||r.clockOut||r.endTime||r.checkout||'';
+    if(!dateStr)return;
+    var d=new Date(dateStr);
+    if(isNaN(d.getTime()))return;
+    records.push({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),start:fmt(start||dateStr+'T'+r.startTime),end:fmt(end||dateStr+'T'+r.endTime)});
+  });
+  return records.length?records:null;
+}
+var orig=window.fetch;
+window.fetch=function(){return orig.apply(this,arguments).then(function(res){var cl=res.clone();cl.json().then(function(j){var r=parse(j);if(r){window._flexRecords=(window._flexRecords||[]).concat(r);}}).catch(function(){});return res;});};
+var ox=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.open=function(m,u){this._u=u;return ox.apply(this,arguments);};
+XMLHttpRequest.prototype.send=function(){var self=this;var orig2=this.onreadystatechange;this.onreadystatechange=function(){if(self.readyState===4){try{var j=JSON.parse(self.responseText);var r=parse(j);if(r)window._flexRecords=(window._flexRecords||[]).concat(r);}catch(e){}if(orig2)orig2.apply(self,arguments);}};return os.apply(this,arguments);};
+setTimeout(function(){if(window._flexRecords&&window._flexRecords.length){send(window._flexRecords);window._flexRecords=[];}else{alert('근무기록을 찾지 못했습니다.\\n페이지가 완전히 로드된 후 다시 시도해주세요.');}},3000);
+location.reload();
+})();`;
+  return 'javascript:' + encodeURIComponent(code);
+}
+
+let flexWin = null;
+
+function openFlexModal() {
+  document.getElementById('flexModalOverlay').classList.add('open');
+  document.getElementById('flexBookmarklet').href = buildBookmarklet();
+  document.getElementById('flexSyncStatus').className = 'flex-sync-status';
+}
+
+function closeFlexModal(e) {
+  if (e && e.target !== document.getElementById('flexModalOverlay')) return;
+  document.getElementById('flexModalOverlay').classList.remove('open');
+}
+
+function openFlexPage() {
+  flexWin = window.open('https://flex.team/time-tracking/my-work-record', 'flexWin', 'width=1200,height=800');
+  if (flexWin) flexWin.__flexAppWin = window;
+}
+
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'FLEX_RECORDS') return;
+  importFlexRecords(e.data.data);
+});
+
+function importFlexRecords(records) {
+  if (!Array.isArray(records) || records.length === 0) return;
+  let imported = 0;
+  records.forEach(function(r) {
+    if (!r.year || !r.month || !r.day) return;
+    const k = hkey(r.year, r.month);
+    if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {} };
+    if (!state[k].meals) state[k].meals = {};
+    if (r.start || r.end) {
+      state[k].days[r.day] = { start: r.start || '', end: r.end || '' };
+      imported++;
+    }
+  });
+  saveData();
+  renderMonth();
+  const st = document.getElementById('flexSyncStatus');
+  st.textContent = imported + '개 근무기록을 불러왔습니다.';
+  st.className = 'flex-sync-status show';
+  if (flexWin && !flexWin.closed) flexWin.close();
+}
 
 loadData();
 renderMonth();

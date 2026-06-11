@@ -542,59 +542,53 @@ document.addEventListener('click', e => {
 let flexWin = null;
 
 function buildBookmarklet() {
-  // 북마클릿: flex.team 페이지에서 실행, API 직접 호출 후 postMessage로 전송
-  // location.reload() 없음 - 즉시 API 호출
-  var parts = [
+  var code = [
     '(function(){',
+    // 앱 창 참조
     'var win=window.opener||window.__appWin;',
-    'function fmt(s){if(!s)return "";var d=new Date(s);if(isNaN(d))return "";return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0");}',
-    'function extract(json){',
-    '  var recs=[];',
-    '  function walk(v,dep){',
-    '    if(!v||dep>7)return;',
-    '    if(Array.isArray(v)){',
-    '      var s=v.find(function(x){return x&&typeof x==="object"&&(x.date||x.workDate||x.targetDate||x.workDay||x.startAt||x.workStartAt);});',
-    '      if(s){v.forEach(function(r){',
-    '        var ds=r.date||r.workDate||r.targetDate||r.workDay||"";',
-    '        var st=r.startAt||r.workStartAt||r.clockIn||r.startTime||"";',
-    '        var en=r.endAt||r.workEndAt||r.clockOut||r.endTime||"";',
-    '        if(!ds)return;var d=new Date(ds);if(isNaN(d))return;',
-    '        recs.push({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),start:fmt(st),end:fmt(en)});',
-    '      });return;}',
-    '      v.forEach(function(x){walk(x,dep+1);});',
-    '    }else if(v&&typeof v==="object"){Object.values(v).forEach(function(x){walk(x,dep+1);});}',
-    '  }',
-    '  walk(json,0);return recs;',
-    '}',
+    // Unix ms timestamp → "HH:MM" (Seoul UTC+9 고정)
+    'function fmt(ts){if(!ts)return "";var d=new Date(ts+0);var u=new Date(d.getTime()+9*3600000);return String(u.getUTCHours()).padStart(2,"0")+":"+String(u.getUTCMinutes()).padStart(2,"0");}',
+    // 전송
     'function send(recs){',
-    '  if(!recs||!recs.length){alert("근무기록을 찾지 못했습니다.\\nNetwork탭>Fetch/XHR에서 API경로를 확인해주세요.");return;}',
-    '  if(win&&!win.closed){win.postMessage({type:"FLEX_RECORDS",data:recs},"*");alert(recs.length+"개 기록 전송 완료!");}',
-    '  else{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(recs));alert("앱 창이 없어 클립보드에 복사했습니다.");}',
+    '  if(!recs||!recs.length){alert("근무기록이 없습니다.");return;}',
+    '  if(win&&!win.closed){win.postMessage({type:"FLEX_RECORDS",data:recs},"*");alert(recs.length+"개 전송 완료!");}',
+    '  else{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(recs));alert("앱 창 없음 - 클립보드 복사됨");}',
     '}',
+    // 페이지에서 이미 호출된 work-schedules URL에서 userIdHash 추출
+    'var entries=performance.getEntriesByType("resource");',
+    'var wsEntry=entries.find(function(e){return e.name.indexOf("/work-schedules")>-1;});',
+    'if(!wsEntry){alert("근무 페이지를 새로고침 후 다시 시도해주세요.");return;}',
+    'var m=wsEntry.name.match(/users\\/([^/?]+)\\/work-schedules/);',
+    'if(!m){alert("사용자 ID를 찾지 못했습니다.");return;}',
+    'var uid=m[1];',
+    // 이번 달 범위
     'var now=new Date(),y=now.getFullYear(),mo=now.getMonth()+1;',
-    'var eps=[',
-    '  "/api/v2/attendance/work-logs?year="+y+"&month="+mo,',
-    '  "/api/v1/attendance/work-logs?year="+y+"&month="+mo,',
-    '  "/api/attendance/work-logs?year="+y+"&month="+mo,',
-    '  "/api/v2/time-tracking/work-records?year="+y+"&month="+mo,',
-    '  "/api/v1/time-tracking/work-records?year="+y+"&month="+mo,',
-    '  "/api/time-tracking/work-records?year="+y+"&month="+mo,',
-    '  "/api/v2/work-records?year="+y+"&month="+mo,',
-    '  "/api/work-records?year="+y+"&month="+mo,',
-    '];',
-    'var idx=0;',
-    'function tryNext(){',
-    '  if(idx>=eps.length){send(null);return;}',
-    '  var url=eps[idx++];',
-    '  fetch(url,{credentials:"include",headers:{"Accept":"application/json","X-Requested-With":"XMLHttpRequest"}})',
-    '    .then(function(r){if(!r.ok)throw r.status;return r.json();})',
-    '    .then(function(j){var r=extract(j);if(r.length)send(r);else tryNext();})',
-    '    .catch(function(){tryNext();});',
-    '}',
-    'tryNext();',
+    'var pad=function(n){return String(n).padStart(2,"0");};',
+    'var from=y+"-"+pad(mo)+"-01";',
+    'var last=new Date(y,mo,0).getDate();',
+    'var to=y+"-"+pad(mo)+"-"+pad(last);',
+    'var url="/api/v3/time-tracking/users/"+uid+"/work-schedules?from="+from+"&to="+to+"&timezone=Asia%2FSeoul";',
+    // API 호출
+    'fetch(url,{credentials:"include",headers:{"Accept":"application/json"}})',
+    '  .then(function(r){if(!r.ok)throw r.status;return r.json();})',
+    '  .then(function(json){',
+    '    var recs=[];',
+    '    (json.dailySchedules||[]).forEach(function(day){',
+    '      var wb=(day.timeBlocks||[]).find(function(b){return b.type==="WORK";});',
+    '      if(!wb)return;',
+    '      var v=wb.value||{};',
+    '      var sTs=v.startTimestamp&&v.startTimestamp.timestamp;',
+    '      var eTs=v.endTimestamp&&v.endTimestamp.timestamp;',
+    '      if(!sTs)return;',
+    '      var dt=new Date(day.date+"T00:00:00+09:00");',
+    '      recs.push({year:dt.getFullYear(),month:dt.getMonth()+1,day:dt.getDate(),start:fmt(sTs),end:eTs?fmt(eTs):""});',
+    '    });',
+    '    send(recs);',
+    '  })',
+    '  .catch(function(e){alert("오류: "+e);});',
     '})();'
-  ];
-  return 'javascript:' + encodeURIComponent(parts.join(''));
+  ].join('');
+  return 'javascript:' + encodeURIComponent(code);
 }
 
 function openFlexModal() {

@@ -67,11 +67,14 @@
     .day-cell.day-sun .time-fields input[type=time],
     .day-cell.day-holiday .time-fields input[type=time] { background: rgba(255,255,255,0.5); }
 
-    /* 식대 체크박스 */
+    /* 체크박스 행 (휴게/식대 공통) */
     .meal-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
-    .meal-row input[type=checkbox] { width: 11px; height: 11px; accent-color: #E07B2A; cursor: pointer; flex-shrink: 0; }
+    .meal-row input[type=checkbox] { width: 11px; height: 11px; cursor: pointer; flex-shrink: 0; }
+    .meal-row input[type=checkbox].meal-cb { accent-color: #E07B2A; }
+    .meal-row input[type=checkbox].break-cb { accent-color: #6366F1; }
     .meal-row label { font-size: 10px; color: var(--color-text-secondary); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 3px; }
     .meal-row label .meal-deduct { font-size: 9px; color: #E07B2A; }
+    .meal-row label .break-deduct { font-size: 9px; color: #6366F1; }
     .meal-checked-tag { font-size: 9px; background: #FEF3E8; color: #C05A1A; border-radius: 3px; padding: 1px 4px; display: inline-block; }
 
     .day-hours { font-size: 12px; font-weight: 500; color: #1D9E75; text-align: center; margin-top: auto; padding-top: 2px; }
@@ -256,14 +259,16 @@ const HOLIDAYS = {
 };
 
 const MEAL_DEDUCT = 30;
+const BREAK_DEDUCT = 60;
 
 function hkey(y, m) { return y + '-' + m; }
 function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
 
 function initMonth(y, m) {
   const k = hkey(y, m);
-  if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {} };
+  if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {} };
   if (!state[k].meals) state[k].meals = {};
+  if (!state[k].breaks) state[k].breaks = {};
 }
 
 function getState() { return state[hkey(curYear, curMonth)]; }
@@ -314,6 +319,8 @@ function buildCalendar(y, m, st) {
     const endVal = saved.end !== undefined ? saved.end : (off ? '' : '18:00');
     const evts = st.events[d] || [];
     const mealChecked = !!st.meals[d];
+    const autoBreak = !!(startVal && endVal);
+    const breakChecked = st.breaks[d] !== undefined ? !!st.breaks[d] : autoBreak;
 
     const isToday = (y === today.getFullYear() && m === today.getMonth() + 1 && d === today.getDate());
     let cellClass = 'day-cell';
@@ -364,19 +371,30 @@ function buildCalendar(y, m, st) {
     tf.appendChild(si); tf.appendChild(ei);
     cell.appendChild(tf);
 
+    const breakRow = document.createElement('div');
+    breakRow.className = 'meal-row';
+    const brCbId = 'break_' + d;
+    const brCb = document.createElement('input');
+    brCb.type = 'checkbox'; brCb.className = 'break-cb';
+    brCb.id = brCbId; brCb.checked = breakChecked;
+    brCb.onchange = () => onBreakChange(d, brCb.checked);
+    const brLbl = document.createElement('label');
+    brLbl.htmlFor = brCbId;
+    brLbl.innerHTML = '휴게 <span class="break-deduct">(-1시간)</span>';
+    breakRow.appendChild(brCb); breakRow.appendChild(brLbl);
+    cell.appendChild(breakRow);
+
     const mealRow = document.createElement('div');
     mealRow.className = 'meal-row';
     const cbId = 'meal_' + d;
     const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.id = cbId;
-    cb.checked = mealChecked;
+    cb.type = 'checkbox'; cb.className = 'meal-cb';
+    cb.id = cbId; cb.checked = mealChecked;
     cb.onchange = () => onMealChange(d, cb.checked);
     const lbl = document.createElement('label');
     lbl.htmlFor = cbId;
     lbl.innerHTML = '식대 <span class="meal-deduct">(-30분)</span>';
-    mealRow.appendChild(cb);
-    mealRow.appendChild(lbl);
+    mealRow.appendChild(cb); mealRow.appendChild(lbl);
     cell.appendChild(mealRow);
 
     const hEl = document.createElement('div');
@@ -395,6 +413,13 @@ function buildCalendar(y, m, st) {
       if (todayCell) todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }
+}
+
+function onBreakChange(d, checked) {
+  const st = getState();
+  st.breaks[d] = checked;
+  updateDayHours(d);
+  recalc();
 }
 
 function onMealChange(d, checked) {
@@ -424,6 +449,8 @@ function updateDayHours(d) {
   let mins = timeDiff(sv, ev);
   if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
   const st = getState();
+  const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
+  if (applyBreak) mins = Math.max(0, mins - BREAK_DEDUCT);
   if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
   el.textContent = fmtMins(mins);
   el.className = mins > 0 ? 'day-hours' : 'day-hours zero';
@@ -452,6 +479,8 @@ function recalc() {
     let mins = timeDiff(sv, ev);
     if (mins <= 0) continue;
     cnt++;
+    const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
+    if (applyBreak) mins = Math.max(0, mins - BREAK_DEDUCT);
     if (st.meals[d]) {
       mins = Math.max(0, mins - MEAL_DEDUCT);
       mealCnt++;
@@ -628,8 +657,9 @@ function importFlexRecords(records) {
   records.forEach(function(r) {
     if (!r.year || !r.month || !r.day) return;
     const k = hkey(r.year, r.month);
-    if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {} };
+    if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {} };
     if (!state[k].meals) state[k].meals = {};
+    if (!state[k].breaks) state[k].breaks = {};
     if (r.start || r.end) {
       state[k].days[r.day] = { start: r.start || '', end: r.end || '' };
       imported++;

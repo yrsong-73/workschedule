@@ -76,6 +76,9 @@
     .meal-row label .meal-deduct { font-size: 9px; color: #E07B2A; }
     .meal-row label .break-deduct { font-size: 9px; color: #6366F1; }
     .meal-checked-tag { font-size: 9px; background: #FEF3E8; color: #C05A1A; border-radius: 3px; padding: 1px 4px; display: inline-block; }
+    .break-mins-input { width: 34px; font-size: 10px; padding: 1px 3px; border: 0.5px solid var(--color-border-tertiary); border-radius: 4px; background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .break-mins-input:disabled { opacity: 0.5; }
+    .meal-row .break-mins-unit { font-size: 9px; color: var(--color-text-secondary); }
 
     .day-hours { font-size: 12px; font-weight: 500; color: #1D9E75; text-align: center; margin-top: auto; padding-top: 2px; }
     .day-hours.zero { color: var(--color-text-tertiary); }
@@ -184,7 +187,7 @@
     <div class="card"><div class="card-label">총 근무시간</div><div class="card-value" id="totalHours">0h</div></div>
     <div class="card"><div class="card-label">목표까지</div><div class="card-value neu" id="diffHours">-</div></div>
     <div class="card"><div class="card-label">입력된 날</div><div class="card-value" id="workDays">0일</div></div>
-    <div class="card"><div class="card-label">식대 차감일</div><div class="card-value" id="mealDays">0일</div></div>
+    <div class="card"><div class="card-label">남은 근무일 평균</div><div class="card-value" id="remainAvg">-</div></div>
   </div>
 
   <div class="cal-wrap">
@@ -266,9 +269,15 @@ function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
 
 function initMonth(y, m) {
   const k = hkey(y, m);
-  if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {} };
+  if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {}, breakMins: {} };
   if (!state[k].meals) state[k].meals = {};
   if (!state[k].breaks) state[k].breaks = {};
+  if (!state[k].breakMins) state[k].breakMins = {};
+}
+
+function getBreakMins(st, d) {
+  const v = st.breakMins[d];
+  return (v === undefined || v === null || v === '') ? BREAK_DEDUCT : Math.max(0, parseInt(v, 10) || 0);
 }
 
 function getState() { return state[hkey(curYear, curMonth)]; }
@@ -371,6 +380,7 @@ function buildCalendar(y, m, st) {
     tf.appendChild(si); tf.appendChild(ei);
     cell.appendChild(tf);
 
+    const breakMinsVal = getBreakMins(st, d);
     const breakRow = document.createElement('div');
     breakRow.className = 'meal-row';
     const brCbId = 'break_' + d;
@@ -380,8 +390,20 @@ function buildCalendar(y, m, st) {
     brCb.onchange = () => onBreakChange(d, brCb.checked);
     const brLbl = document.createElement('label');
     brLbl.htmlFor = brCbId;
-    brLbl.innerHTML = '휴게 <span class="break-deduct">(-1시간)</span>';
+    brLbl.textContent = '휴게';
+    const brMinsInput = document.createElement('input');
+    brMinsInput.type = 'number'; brMinsInput.className = 'break-mins-input';
+    brMinsInput.id = 'breakmins_' + d;
+    brMinsInput.min = 0; brMinsInput.max = 480; brMinsInput.step = 1;
+    brMinsInput.value = breakMinsVal;
+    brMinsInput.disabled = !breakChecked;
+    brMinsInput.onclick = (e) => e.stopPropagation();
+    brMinsInput.oninput = () => onBreakMinsChange(d, brMinsInput.value);
+    const brUnit = document.createElement('span');
+    brUnit.className = 'break-mins-unit';
+    brUnit.textContent = '분';
     breakRow.appendChild(brCb); breakRow.appendChild(brLbl);
+    breakRow.appendChild(brMinsInput); breakRow.appendChild(brUnit);
     cell.appendChild(breakRow);
 
     const mealRow = document.createElement('div');
@@ -418,6 +440,15 @@ function buildCalendar(y, m, st) {
 function onBreakChange(d, checked) {
   const st = getState();
   st.breaks[d] = checked;
+  const minsInput = document.getElementById('breakmins_' + d);
+  if (minsInput) minsInput.disabled = !checked;
+  updateDayHours(d);
+  recalc();
+}
+
+function onBreakMinsChange(d, val) {
+  const st = getState();
+  st.breakMins[d] = val;
   updateDayHours(d);
   recalc();
 }
@@ -450,7 +481,7 @@ function updateDayHours(d) {
   if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
   const st = getState();
   const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
-  if (applyBreak) mins = Math.max(0, mins - BREAK_DEDUCT);
+  if (applyBreak) mins = Math.max(0, mins - getBreakMins(st, d));
   if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
   el.textContent = fmtMins(mins);
   el.className = mins > 0 ? 'day-hours' : 'day-hours zero';
@@ -471,7 +502,7 @@ function recalc() {
   const y = curYear, m = curMonth;
   const days = new Date(y, m, 0).getDate();
   const st = getState();
-  let total = 0, cnt = 0, mealCnt = 0;
+  let total = 0, cnt = 0;
   for (let d = 1; d <= days; d++) {
     const sv = document.getElementById('s_' + d)?.value || '';
     const ev = document.getElementById('e_' + d)?.value || '';
@@ -480,25 +511,54 @@ function recalc() {
     if (mins <= 0) continue;
     cnt++;
     const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
-    if (applyBreak) mins = Math.max(0, mins - BREAK_DEDUCT);
-    if (st.meals[d]) {
-      mins = Math.max(0, mins - MEAL_DEDUCT);
-      mealCnt++;
-    }
+    if (applyBreak) mins = Math.max(0, mins - getBreakMins(st, d));
+    if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
     total += mins;
   }
   document.getElementById('totalHours').textContent = fmtMins(total);
   document.getElementById('workDays').textContent = cnt + '일';
-  document.getElementById('mealDays').textContent = mealCnt + '일';
   const tgtH = parseFloat(document.getElementById('targetHours').value) || 0;
   const tgtM = parseFloat(document.getElementById('targetMins').value) || 0;
   const tgt = tgtH * 60 + tgtM;
   const diffEl = document.getElementById('diffHours');
-  if (!tgt) { diffEl.textContent = '-'; diffEl.className = 'card-value neu'; return; }
+  const remainEl = document.getElementById('remainAvg');
+  if (!tgt) {
+    diffEl.textContent = '-'; diffEl.className = 'card-value neu';
+    remainEl.textContent = '-'; remainEl.className = 'card-value neu';
+    return;
+  }
   const diff = tgt - total;
   if (diff > 0) { diffEl.textContent = '+' + fmtMins(diff) + ' 필요'; diffEl.className = 'card-value neg'; }
   else if (diff < 0) { diffEl.textContent = fmtMins(-diff) + ' 초과'; diffEl.className = 'card-value pos'; }
   else { diffEl.textContent = '딱 맞음!'; diffEl.className = 'card-value pos'; }
+
+  if (diff <= 0) {
+    remainEl.textContent = '달성!'; remainEl.className = 'card-value pos';
+  } else {
+    const remainDays = countRemainingWorkdays(y, m);
+    if (remainDays <= 0) {
+      remainEl.textContent = '-'; remainEl.className = 'card-value neu';
+    } else {
+      const avg = Math.ceil(diff / remainDays);
+      remainEl.textContent = fmtMins(avg) + '/일';
+      remainEl.className = 'card-value neg';
+    }
+  }
+}
+
+function countRemainingWorkdays(y, m) {
+  const days = new Date(y, m, 0).getDate();
+  const ty = today.getFullYear(), tm = today.getMonth() + 1, td = today.getDate();
+  let count = 0;
+  for (let d = 1; d <= days; d++) {
+    const isPast = (y < ty) || (y === ty && m < tm) || (y === ty && m === tm && d < td);
+    if (isPast) continue;
+    const dow = new Date(y, m - 1, d).getDay();
+    if (dow === 0 || dow === 6) continue;
+    if (isHoliday(y, m, d)) continue;
+    count++;
+  }
+  return count;
 }
 
 function onTargetChange() {
@@ -657,9 +717,10 @@ function importFlexRecords(records) {
   records.forEach(function(r) {
     if (!r.year || !r.month || !r.day) return;
     const k = hkey(r.year, r.month);
-    if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {} };
+    if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {}, breakMins: {} };
     if (!state[k].meals) state[k].meals = {};
     if (!state[k].breaks) state[k].breaks = {};
+    if (!state[k].breakMins) state[k].breakMins = {};
     if (r.start || r.end) {
       state[k].days[r.day] = { start: r.start || '', end: r.end || '' };
       imported++;

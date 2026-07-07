@@ -502,7 +502,8 @@ function recalc() {
   const y = curYear, m = curMonth;
   const days = new Date(y, m, 0).getDate();
   const st = getState();
-  let total = 0, cnt = 0;
+  const ty = today.getFullYear(), tm = today.getMonth() + 1, td = today.getDate();
+  let total = 0, cnt = 0, totalSoFar = 0;
   for (let d = 1; d <= days; d++) {
     const sv = document.getElementById('s_' + d)?.value || '';
     const ev = document.getElementById('e_' + d)?.value || '';
@@ -514,6 +515,8 @@ function recalc() {
     if (applyBreak) mins = Math.max(0, mins - getBreakMins(st, d));
     if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
     total += mins;
+    const isPast = (y < ty) || (y === ty && m < tm) || (y === ty && m === tm && d < td);
+    if (isPast) totalSoFar += mins;
   }
   document.getElementById('totalHours').textContent = fmtMins(total);
   document.getElementById('workDays').textContent = cnt + '일';
@@ -532,14 +535,15 @@ function recalc() {
   else if (diff < 0) { diffEl.textContent = fmtMins(-diff) + ' 초과'; diffEl.className = 'card-value pos'; }
   else { diffEl.textContent = '딱 맞음!'; diffEl.className = 'card-value pos'; }
 
-  if (diff <= 0) {
+  const diffSoFar = tgt - totalSoFar;
+  if (diffSoFar <= 0) {
     remainEl.textContent = '달성!'; remainEl.className = 'card-value pos';
   } else {
     const remainDays = countRemainingWorkdays(y, m);
     if (remainDays <= 0) {
       remainEl.textContent = '-'; remainEl.className = 'card-value neu';
     } else {
-      const avg = Math.ceil(diff / remainDays);
+      const avg = Math.ceil(diffSoFar / remainDays);
       remainEl.textContent = fmtMins(avg) + '/일';
       remainEl.className = 'card-value neg';
     }

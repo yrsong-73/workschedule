@@ -168,6 +168,7 @@
   <span>시간</span>
   <input type="number" id="targetMins" value="" placeholder="0" min="0" max="59" oninput="onTargetChange()" />
   <span>분</span>
+  <span id="targetAutoBadge" class="save-notice" style="display:none;color:#4F46E5;"></span>
     <button class="btn-save" id="saveBtn" onclick="saveData()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
@@ -202,6 +203,7 @@
   </div>
 </div>
 
+<script src="flex_data.js"></script>
 <script>
 const today = new Date();
 let curYear = today.getFullYear();
@@ -267,9 +269,30 @@ const BREAK_DEDUCT = 60;
 function hkey(y, m) { return y + '-' + m; }
 function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
 
+// 해당 월의 목표 근무시간(분)을 Flex가 실제로 계산한 값(requiredAgreedWorkingMinutes)에서 그대로 가져온다.
+// (자체적으로 "평일 수 × 8시간" 같은 방식으로 재계산하지 않음 — 이미 사용한 연차 등이 반영된 Flex의
+// 공식 소정근로시간 값과 어긋날 수 있기 때문. window.FLEX_MONTHLY_TARGET_MINUTES 는 매일 자동 동기화가 채워줌.)
+function computeAutoTargetMinutes(y, m) {
+  if (typeof window.FLEX_MONTHLY_TARGET_MINUTES === 'undefined') return null;
+  const v = window.FLEX_MONTHLY_TARGET_MINUTES[hkey(y, m)];
+  return (typeof v === 'number') ? v : null;
+}
+
 function initMonth(y, m) {
   const k = hkey(y, m);
-  if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {}, breakMins: {} };
+  if (!state[k]) {
+    state[k] = { target: '', targetMins: '', targetAuto: true, days: {}, events: {}, meals: {}, breaks: {}, breakMins: {} };
+  }
+  // targetAuto가 true인 달(=사용자가 직접 수정한 적 없는 달)은 Flex 값이 갱신될 때마다 최신값으로 맞춰준다.
+  // 사용자가 한 번이라도 직접 입력하면 onTargetChange()에서 targetAuto=false로 바뀌어 더 이상 덮어쓰지 않는다.
+  if (state[k].targetAuto !== false) {
+    const autoMins = computeAutoTargetMinutes(y, m);
+    if (autoMins !== null) {
+      state[k].targetAuto = true;
+      state[k].target = Math.floor(autoMins / 60);
+      state[k].targetMins = autoMins % 60;
+    }
+  }
   if (!state[k].meals) state[k].meals = {};
   if (!state[k].breaks) state[k].breaks = {};
   if (!state[k].breakMins) state[k].breakMins = {};
@@ -296,6 +319,9 @@ function renderMonth() {
   document.getElementById('monthLabel').textContent = y + '년 ' + m + '월';
   document.getElementById('targetHours').value = st.target;
   document.getElementById('targetMins').value = st.targetMins || '';
+  const badge = document.getElementById('targetAutoBadge');
+  if (st.targetAuto && st.target !== '') { badge.textContent = 'Flex 근무제 기준 자동 계산'; badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
   document.getElementById('saveNotice').style.display = 'none';
   document.getElementById('saveBtn').classList.remove('saved');
   buildCalendar(y, m, st);
@@ -324,8 +350,8 @@ function buildCalendar(y, m, st) {
     const holiday = isHoliday(y, m, d);
     const off = isSat || isSun || !!holiday;
     const saved = st.days[d] || {};
-    const startVal = saved.start !== undefined ? saved.start : (off ? '' : '09:00');
-    const endVal = saved.end !== undefined ? saved.end : (off ? '' : '18:00');
+    const startVal = saved.start !== undefined ? saved.start : (off ? '' : '11:00');
+    const endVal = saved.end !== undefined ? saved.end : (off ? '' : '16:00');
     const evts = st.events[d] || [];
     const mealChecked = !!st.meals[d];
     const autoBreak = !!(startVal && endVal);
@@ -566,8 +592,11 @@ function countRemainingWorkdays(y, m) {
 }
 
 function onTargetChange() {
-  getState().target = document.getElementById('targetHours').value;
-  getState().targetMins = document.getElementById('targetMins').value;
+  const st = getState();
+  st.target = document.getElementById('targetHours').value;
+  st.targetMins = document.getElementById('targetMins').value;
+  st.targetAuto = false;
+  document.getElementById('targetAutoBadge').style.display = 'none';
   recalc();
 }
 
@@ -671,7 +700,8 @@ function buildBookmarklet() {
     '        if(!wb)return;',
     '        var v=wb.value||{};',
     '        var sTs=v.startTimestamp&&v.startTimestamp.timestamp;',
-    '        var eTs=v.endTimestamp&&v.endTimestamp.timestamp;',
+    '        var eObj=v.endTimestamp||v.endTimestampExclusive;',
+    '        var eTs=eObj&&eObj.timestamp;',
     '        if(!sTs)return;',
     '        var dt=new Date(day.date+"T00:00:00+09:00");',
     '        recs.push({year:dt.getFullYear(),month:dt.getMonth()+1,day:dt.getDate(),start:fmt(sTs),end:eTs?fmt(eTs):""});',
@@ -715,23 +745,24 @@ window.addEventListener('message', function(e) {
   importFlexRecords(e.data.data);
 });
 
-function importFlexRecords(records) {
-  if (!Array.isArray(records) || !records.length) return;
+function mergeFlexRecords(records) {
+  if (!Array.isArray(records) || !records.length) return 0;
   let imported = 0;
   records.forEach(function(r) {
     if (!r.year || !r.month || !r.day) return;
     const k = hkey(r.year, r.month);
-    if (!state[k]) state[k] = { target: '', targetMins: '', days: {}, events: {}, meals: {}, breaks: {}, breakMins: {} };
-    if (!state[k].meals) state[k].meals = {};
-    if (!state[k].breaks) state[k].breaks = {};
-    if (!state[k].breakMins) state[k].breakMins = {};
+    initMonth(r.year, r.month);
     if (r.start || r.end) {
       state[k].days[r.day] = { start: r.start || '', end: r.end || '' };
       imported++;
     }
   });
-  saveData();
-  renderMonth();
+  if (imported) { saveData(); renderMonth(); }
+  return imported;
+}
+
+function importFlexRecords(records) {
+  const imported = mergeFlexRecords(records);
   const st = document.getElementById('flexSyncStatus');
   st.textContent = imported + '개 근무기록을 불러왔습니다.';
   st.className = 'flex-sync-status ok';
@@ -739,8 +770,24 @@ function importFlexRecords(records) {
   document.getElementById('flexModalOverlay').classList.add('open');
 }
 
+// ── 자동 동기화 (매일 스케줄 작업이 flex_data.js를 갱신) ──────────
+function autoImportFlexRecords() {
+  if (typeof window.FLEX_AUTO_DATA === 'undefined' || !Array.isArray(window.FLEX_AUTO_DATA)) return;
+  const imported = mergeFlexRecords(window.FLEX_AUTO_DATA);
+  if (imported) showAutoSyncToast(imported, window.FLEX_AUTO_SYNCED_AT);
+}
+
+function showAutoSyncToast(n, syncedAt) {
+  const el = document.createElement('div');
+  el.textContent = 'Flex 자동 동기화: ' + n + '개 반영' + (syncedAt ? ' (' + syncedAt + ' 기준)' : '');
+  el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1D9E75;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
 loadData();
 renderMonth();
+autoImportFlexRecords();
 </script>
 </body>
 </html>

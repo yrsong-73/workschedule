@@ -59,6 +59,7 @@
     .event-tag { font-size: 10px; background: #E1F5EE; color: #0F6E56; border-radius: 4px; padding: 2px 5px; display: flex; align-items: center; gap: 2px; }
     .event-tag span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .event-tag button { background: none; border: none; cursor: pointer; font-size: 10px; color: #0F6E56; padding: 0; line-height: 1; flex-shrink: 0; }
+    .leave-tag { font-size: 10px; background: #F3E8FF; color: #7C3AED; border-radius: 4px; padding: 2px 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .add-event-btn { font-size: 10px; color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
     .add-event-btn:hover { color: var(--color-text-secondary); }
     .time-fields { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
@@ -281,7 +282,7 @@ function computeAutoTargetMinutes(y, m) {
 function initMonth(y, m) {
   const k = hkey(y, m);
   if (!state[k]) {
-    state[k] = { target: '', targetMins: '', targetAuto: true, days: {}, events: {}, meals: {}, breaks: {}, breakMins: {} };
+    state[k] = { target: '', targetMins: '', targetAuto: true, days: {}, events: {}, meals: {}, breaks: {}, breakMins: {}, leaveMins: {} };
   }
   // targetAuto가 true인 달(=사용자가 직접 수정한 적 없는 달)은 Flex 값이 갱신될 때마다 최신값으로 맞춰준다.
   // 사용자가 한 번이라도 직접 입력하면 onTargetChange()에서 targetAuto=false로 바뀌어 더 이상 덮어쓰지 않는다.
@@ -395,6 +396,13 @@ function buildCalendar(y, m, st) {
     evtArea.appendChild(addBtn);
     cell.appendChild(evtArea);
 
+    if (saved.leaveMinutes) {
+      const leaveTag = document.createElement('div');
+      leaveTag.className = 'leave-tag';
+      leaveTag.textContent = '휴가 ' + fmtMins(saved.leaveMinutes) + (saved.leaveMemo ? ' · ' + saved.leaveMemo : '');
+      cell.appendChild(leaveTag);
+    }
+
     const tf = document.createElement('div');
     tf.className = 'time-fields';
     const si = document.createElement('input');
@@ -492,9 +500,27 @@ function onTimeChange(d) {
   const s = document.getElementById('s_' + d);
   const e = document.getElementById('e_' + d);
   if (!s || !e) return;
-  st.days[d] = { start: s.value, end: e.value };
+  const prev = st.days[d] || {};
+  st.days[d] = { start: s.value, end: e.value, leaveMinutes: prev.leaveMinutes || 0, leaveMemo: prev.leaveMemo || '' };
   updateDayHours(d);
   recalc();
+}
+
+// 하루 근무 인정 분(휴게/식대 차감 후) = 출퇴근 계산분 + 휴가 인정분(leaveMinutes, 차감 없이 그대로 합산)
+function dayCreditedMinutes(st, d, sv, ev) {
+  const leaveMins = Math.max(0, parseInt((st.days[d] || {}).leaveMinutes, 10) || 0);
+  let mins = 0;
+  if (sv && ev) {
+    let workMins = timeDiff(sv, ev);
+    if (workMins > 0) {
+      const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
+      if (applyBreak) workMins = Math.max(0, workMins - getBreakMins(st, d));
+      if (st.meals[d]) workMins = Math.max(0, workMins - MEAL_DEDUCT);
+      mins += workMins;
+    }
+  }
+  mins += leaveMins;
+  return mins;
 }
 
 function updateDayHours(d) {
@@ -502,15 +528,11 @@ function updateDayHours(d) {
   const ev = document.getElementById('e_' + d)?.value || '';
   const el = document.getElementById('h_' + d);
   if (!el) return;
-  if (!sv || !ev) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
-  let mins = timeDiff(sv, ev);
-  if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
   const st = getState();
-  const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
-  if (applyBreak) mins = Math.max(0, mins - getBreakMins(st, d));
-  if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
+  const mins = dayCreditedMinutes(st, d, sv, ev);
+  if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
   el.textContent = fmtMins(mins);
-  el.className = mins > 0 ? 'day-hours' : 'day-hours zero';
+  el.className = 'day-hours';
 }
 
 function timeDiff(s, e) {
@@ -533,13 +555,9 @@ function recalc() {
   for (let d = 1; d <= days; d++) {
     const sv = document.getElementById('s_' + d)?.value || '';
     const ev = document.getElementById('e_' + d)?.value || '';
-    if (!sv || !ev) continue;
-    let mins = timeDiff(sv, ev);
+    const mins = dayCreditedMinutes(st, d, sv, ev);
     if (mins <= 0) continue;
     cnt++;
-    const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
-    if (applyBreak) mins = Math.max(0, mins - getBreakMins(st, d));
-    if (st.meals[d]) mins = Math.max(0, mins - MEAL_DEDUCT);
     total += mins;
     const isPast = (y < ty) || (y === ty && m < tm) || (y === ty && m === tm && d < td);
     if (isPast) totalSoFar += mins;
@@ -696,15 +714,32 @@ function buildBookmarklet() {
     '    .then(function(json){',
     '      var recs=[];',
     '      (json.dailySchedules||[]).forEach(function(day){',
-    '        var wb=(day.timeBlocks||[]).find(function(b){return b.type==="WORK";});',
-    '        if(!wb)return;',
-    '        var v=wb.value||{};',
-    '        var sTs=v.startTimestamp&&v.startTimestamp.timestamp;',
-    '        var eObj=v.endTimestamp||v.endTimestampExclusive;',
-    '        var eTs=eObj&&eObj.timestamp;',
-    '        if(!sTs)return;',
+    '        var blocks=day.timeBlocks||[];',
+    '        var wb=blocks.find(function(b){return b.type==="WORK";});',
+    '        var leaveMins=0,leaveMemo="";',
+    '        blocks.filter(function(b){return /TIME_OFF/.test(b.type||"");}).forEach(function(b){',
+    '          var v=b.value||{};',
+    '          var mins=(typeof v.usedMinutes==="number")?v.usedMinutes:0;',
+    '          if(!mins){',
+    '            var s=v.startTimestamp&&v.startTimestamp.timestamp;',
+    '            var eo=v.endTimestampExclusive||v.endTimestamp;',
+    '            var e=eo&&eo.timestamp;',
+    '            if(s&&e)mins+=Math.round((e-s)/60000);',
+    '          }',
+    '          leaveMins+=mins;',
+    '          if(!leaveMemo)leaveMemo=v.memo||(b.type==="ANNUAL_TIME_OFF"?"연차":"휴가");',
+    '        });',
+    '        if(!wb&&!leaveMins)return;',
     '        var dt=new Date(day.date+"T00:00:00+09:00");',
-    '        recs.push({year:dt.getFullYear(),month:dt.getMonth()+1,day:dt.getDate(),start:fmt(sTs),end:eTs?fmt(eTs):""});',
+    '        var rec={year:dt.getFullYear(),month:dt.getMonth()+1,day:dt.getDate(),start:"",end:"",leaveMinutes:leaveMins,leaveMemo:leaveMemo};',
+    '        if(wb){',
+    '          var v=wb.value||{};',
+    '          var sTs=v.startTimestamp&&v.startTimestamp.timestamp;',
+    '          var eObj=v.endTimestamp||v.endTimestampExclusive;',
+    '          var eTs=eObj&&eObj.timestamp;',
+    '          if(sTs){rec.start=fmt(sTs);rec.end=eTs?fmt(eTs):"";}',
+    '        }',
+    '        recs.push(rec);',
     '      });',
     '      send(recs);',
     '    })',
@@ -752,8 +787,9 @@ function mergeFlexRecords(records) {
     if (!r.year || !r.month || !r.day) return;
     const k = hkey(r.year, r.month);
     initMonth(r.year, r.month);
-    if (r.start || r.end) {
-      state[k].days[r.day] = { start: r.start || '', end: r.end || '' };
+    const leaveMinutes = Math.max(0, parseInt(r.leaveMinutes, 10) || 0);
+    if (r.start || r.end || leaveMinutes > 0) {
+      state[k].days[r.day] = { start: r.start || '', end: r.end || '', leaveMinutes: leaveMinutes, leaveMemo: r.leaveMemo || '' };
       imported++;
     }
   });

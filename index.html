@@ -68,18 +68,7 @@
     .day-cell.day-sun .time-fields input[type=time],
     .day-cell.day-holiday .time-fields input[type=time] { background: rgba(255,255,255,0.5); }
 
-    /* 체크박스 행 (휴게/식대 공통) */
-    .meal-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
-    .meal-row input[type=checkbox] { width: 11px; height: 11px; cursor: pointer; flex-shrink: 0; }
-    .meal-row input[type=checkbox].meal-cb { accent-color: #E07B2A; }
-    .meal-row input[type=checkbox].break-cb { accent-color: #6366F1; }
-    .meal-row label { font-size: 10px; color: var(--color-text-secondary); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 3px; }
-    .meal-row label .meal-deduct { font-size: 9px; color: #E07B2A; }
-    .meal-row label .break-deduct { font-size: 9px; color: #6366F1; }
-    .meal-checked-tag { font-size: 9px; background: #FEF3E8; color: #C05A1A; border-radius: 3px; padding: 1px 4px; display: inline-block; }
-    .break-mins-input { width: 34px; font-size: 10px; padding: 1px 3px; border: 0.5px solid var(--color-border-tertiary); border-radius: 4px; background: var(--color-background-secondary); color: var(--color-text-primary); }
-    .break-mins-input:disabled { opacity: 0.5; }
-    .meal-row .break-mins-unit { font-size: 9px; color: var(--color-text-secondary); }
+    .ded-label { font-size: 10px; color: var(--color-text-tertiary); text-align: center; margin-top: 3px; }
 
     .day-hours { font-size: 12px; font-weight: 500; color: #1D9E75; text-align: center; margin-top: auto; padding-top: 2px; }
     .day-hours.zero { color: var(--color-text-tertiary); }
@@ -265,7 +254,6 @@ const HOLIDAYS = {
 };
 
 const MEAL_DEDUCT = 30;
-const BREAK_DEDUCT = 60;
 
 function hkey(y, m) { return y + '-' + m; }
 function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
@@ -282,7 +270,7 @@ function computeAutoTargetMinutes(y, m) {
 function initMonth(y, m) {
   const k = hkey(y, m);
   if (!state[k]) {
-    state[k] = { target: '', targetMins: '', targetAuto: true, days: {}, events: {}, meals: {}, breaks: {}, breakMins: {}, leaveMins: {} };
+    state[k] = { target: '', targetMins: '', targetAuto: true, days: {}, events: {}, breakMins: {} };
   }
   // targetAuto가 true인 달(=사용자가 직접 수정한 적 없는 달)은 Flex 값이 갱신될 때마다 최신값으로 맞춰준다.
   // 사용자가 한 번이라도 직접 입력하면 onTargetChange()에서 targetAuto=false로 바뀌어 더 이상 덮어쓰지 않는다.
@@ -294,14 +282,13 @@ function initMonth(y, m) {
       state[k].targetMins = autoMins % 60;
     }
   }
-  if (!state[k].meals) state[k].meals = {};
-  if (!state[k].breaks) state[k].breaks = {};
   if (!state[k].breakMins) state[k].breakMins = {};
 }
 
+// 휴게시간은 더 이상 수동으로 켜고 끄지 않는다 — Flex 실제 휴게(REST) 기록에서 동기화된 값만 사용하고,
+// 동기화된 적 없는 날은 0분(차감 없음)으로 취급한다.
 function getBreakMins(st, d) {
-  const v = st.breakMins[d];
-  return (v === undefined || v === null || v === '') ? BREAK_DEDUCT : Math.max(0, parseInt(v, 10) || 0);
+  return Math.max(0, parseInt(st.breakMins[d], 10) || 0);
 }
 
 function getState() { return state[hkey(curYear, curMonth)]; }
@@ -354,9 +341,6 @@ function buildCalendar(y, m, st) {
     const startVal = saved.start !== undefined ? saved.start : (off ? '' : '11:00');
     const endVal = saved.end !== undefined ? saved.end : (off ? '' : '16:00');
     const evts = st.events[d] || [];
-    const mealChecked = !!st.meals[d];
-    const autoBreak = !!(startVal && endVal);
-    const breakChecked = st.breaks[d] !== undefined ? !!st.breaks[d] : autoBreak;
 
     const isToday = (y === today.getFullYear() && m === today.getMonth() + 1 && d === today.getDate());
     let cellClass = 'day-cell';
@@ -414,44 +398,10 @@ function buildCalendar(y, m, st) {
     tf.appendChild(si); tf.appendChild(ei);
     cell.appendChild(tf);
 
-    const breakMinsVal = getBreakMins(st, d);
-    const breakRow = document.createElement('div');
-    breakRow.className = 'meal-row';
-    const brCbId = 'break_' + d;
-    const brCb = document.createElement('input');
-    brCb.type = 'checkbox'; brCb.className = 'break-cb';
-    brCb.id = brCbId; brCb.checked = breakChecked;
-    brCb.onchange = () => onBreakChange(d, brCb.checked);
-    const brLbl = document.createElement('label');
-    brLbl.htmlFor = brCbId;
-    brLbl.textContent = '휴게';
-    const brMinsInput = document.createElement('input');
-    brMinsInput.type = 'number'; brMinsInput.className = 'break-mins-input';
-    brMinsInput.id = 'breakmins_' + d;
-    brMinsInput.min = 0; brMinsInput.max = 480; brMinsInput.step = 1;
-    brMinsInput.value = breakMinsVal;
-    brMinsInput.disabled = !breakChecked;
-    brMinsInput.onclick = (e) => e.stopPropagation();
-    brMinsInput.oninput = () => onBreakMinsChange(d, brMinsInput.value);
-    const brUnit = document.createElement('span');
-    brUnit.className = 'break-mins-unit';
-    brUnit.textContent = '분';
-    breakRow.appendChild(brCb); breakRow.appendChild(brLbl);
-    breakRow.appendChild(brMinsInput); breakRow.appendChild(brUnit);
-    cell.appendChild(breakRow);
-
-    const mealRow = document.createElement('div');
-    mealRow.className = 'meal-row';
-    const cbId = 'meal_' + d;
-    const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.className = 'meal-cb';
-    cb.id = cbId; cb.checked = mealChecked;
-    cb.onchange = () => onMealChange(d, cb.checked);
-    const lbl = document.createElement('label');
-    lbl.htmlFor = cbId;
-    lbl.innerHTML = '식대 <span class="meal-deduct">(-30분)</span>';
-    mealRow.appendChild(cb); mealRow.appendChild(lbl);
-    cell.appendChild(mealRow);
+    const dedEl = document.createElement('div');
+    dedEl.id = 'ded_' + d;
+    dedEl.className = 'ded-label';
+    cell.appendChild(dedEl);
 
     const hEl = document.createElement('div');
     hEl.id = 'h_' + d;
@@ -471,30 +421,6 @@ function buildCalendar(y, m, st) {
   }
 }
 
-function onBreakChange(d, checked) {
-  const st = getState();
-  st.breaks[d] = checked;
-  const minsInput = document.getElementById('breakmins_' + d);
-  if (minsInput) minsInput.disabled = !checked;
-  updateDayHours(d);
-  recalc();
-}
-
-function onBreakMinsChange(d, val) {
-  const st = getState();
-  st.breakMins[d] = val;
-  updateDayHours(d);
-  recalc();
-}
-
-function onMealChange(d, checked) {
-  const st = getState();
-  if (checked) st.meals[d] = true;
-  else delete st.meals[d];
-  updateDayHours(d);
-  recalc();
-}
-
 function onTimeChange(d) {
   const st = getState();
   const s = document.getElementById('s_' + d);
@@ -506,18 +432,19 @@ function onTimeChange(d) {
   recalc();
 }
 
-// 하루 근무 인정 분(휴게/식대 차감 후) = 출퇴근 계산분 + 휴가 인정분(leaveMinutes, 차감 없이 그대로 합산)
+// 출퇴근 시간이 있는 날의 차감 분 = 휴게(Flex REST 자동 동기화, 없으면 0) + 식대(-30분, 항상 적용)
+function dayDeductionMinutes(st, d, workMins) {
+  if (workMins <= 0) return 0;
+  return Math.min(workMins, getBreakMins(st, d) + MEAL_DEDUCT);
+}
+
+// 하루 근무 인정 분 = (출퇴근 계산분 - 차감분) + 휴가 인정분(leaveMinutes, 차감 없이 그대로 합산)
 function dayCreditedMinutes(st, d, sv, ev) {
   const leaveMins = Math.max(0, parseInt((st.days[d] || {}).leaveMinutes, 10) || 0);
   let mins = 0;
   if (sv && ev) {
-    let workMins = timeDiff(sv, ev);
-    if (workMins > 0) {
-      const applyBreak = st.breaks[d] !== undefined ? !!st.breaks[d] : !!(sv && ev);
-      if (applyBreak) workMins = Math.max(0, workMins - getBreakMins(st, d));
-      if (st.meals[d]) workMins = Math.max(0, workMins - MEAL_DEDUCT);
-      mins += workMins;
-    }
+    const workMins = timeDiff(sv, ev);
+    if (workMins > 0) mins += workMins - dayDeductionMinutes(st, d, workMins);
   }
   mins += leaveMins;
   return mins;
@@ -529,6 +456,12 @@ function updateDayHours(d) {
   const el = document.getElementById('h_' + d);
   if (!el) return;
   const st = getState();
+  const workMins = (sv && ev) ? timeDiff(sv, ev) : 0;
+  const dedEl = document.getElementById('ded_' + d);
+  if (dedEl) {
+    const ded = dayDeductionMinutes(st, d, workMins);
+    dedEl.textContent = ded > 0 ? '차감 ' + fmtMins(ded) : '';
+  }
   const mins = dayCreditedMinutes(st, d, sv, ev);
   if (mins <= 0) { el.textContent = '-'; el.className = 'day-hours zero'; return; }
   el.textContent = fmtMins(mins);
@@ -731,6 +664,14 @@ function buildBookmarklet() {
     '          leaveMins+=mins;',
     '          if(!leaveMemo)leaveMemo=v.memo||(b.type==="ANNUAL_TIME_OFF"?"연차":"휴가");',
     '        });',
+    '        var restMins=0;',
+    '        blocks.filter(function(b){return b.type==="REST";}).forEach(function(b){',
+    '          var v=b.value||{};',
+    '          var s=v.startTimestamp&&v.startTimestamp.timestamp;',
+    '          var eo=v.endTimestampExclusive||v.endTimestamp;',
+    '          var e=eo&&eo.timestamp;',
+    '          if(s&&e)restMins+=Math.round((e-s)/60000);',
+    '        });',
     '        if(!wb&&!leaveMins)return;',
     '        var dt=new Date(day.date+"T00:00:00+09:00");',
     '        var rec={year:dt.getFullYear(),month:dt.getMonth()+1,day:dt.getDate(),start:"",end:"",leaveMinutes:leaveMins,leaveMemo:leaveMemo};',
@@ -740,6 +681,7 @@ function buildBookmarklet() {
     '          var eObj=v.endTimestamp||v.endTimestampExclusive;',
     '          var eTs=eObj&&eObj.timestamp;',
     '          if(sTs){rec.start=fmt(sTs);rec.end=eTs?fmt(eTs):"";}',
+    '          rec.breakMins=restMins;',
     '        }',
     '        recs.push(rec);',
     '      });',
@@ -792,6 +734,7 @@ function mergeFlexRecords(records) {
     const leaveMinutes = Math.max(0, parseInt(r.leaveMinutes, 10) || 0);
     if (r.start || r.end || leaveMinutes > 0) {
       state[k].days[r.day] = { start: r.start || '', end: r.end || '', leaveMinutes: leaveMinutes, leaveMemo: r.leaveMemo || '' };
+      if (typeof r.breakMins === 'number') state[k].breakMins[r.day] = Math.max(0, r.breakMins);
       imported++;
     }
   });

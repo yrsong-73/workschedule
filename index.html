@@ -538,7 +538,9 @@ function updateDayHours(d) {
 function timeDiff(s, e) {
   const [sh, sm] = s.split(':').map(Number);
   const [eh, em] = e.split(':').map(Number);
-  return (eh * 60 + em) - (sh * 60 + sm);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60; // 종료시간이 자정을 넘긴 경우(예: 20:00~02:00)
+  return diff;
 }
 
 function fmtMins(m) {

@@ -254,6 +254,7 @@ const HOLIDAYS = {
 };
 
 const MEAL_DEDUCT = 30;
+const BREAK_DEDUCT_DEFAULT = 60;
 
 function hkey(y, m) { return y + '-' + m; }
 function isHoliday(y, m, d) { return (HOLIDAYS[hkey(y, m)] || {})[d] || null; }
@@ -285,10 +286,11 @@ function initMonth(y, m) {
   if (!state[k].breakMins) state[k].breakMins = {};
 }
 
-// 휴게시간은 더 이상 수동으로 켜고 끄지 않는다 — Flex 실제 휴게(REST) 기록에서 동기화된 값만 사용하고,
-// 동기화된 적 없는 날은 0분(차감 없음)으로 취급한다.
+// 휴게시간은 더 이상 수동으로 켜고 끄지 않는다 — Flex 실제 휴게(REST) 기록이 동기화된 날은 그 값을 쓰고,
+// 아직 동기화된 적 없는 날(자동 동기화가 REST를 안 보내주는 날 포함)은 점심시간 1시간을 기본값으로 차감한다.
 function getBreakMins(st, d) {
-  return Math.max(0, parseInt(st.breakMins[d], 10) || 0);
+  const v = st.breakMins[d];
+  return (v === undefined || v === null || v === '') ? BREAK_DEDUCT_DEFAULT : Math.max(0, parseInt(v, 10) || 0);
 }
 
 function getState() { return state[hkey(curYear, curMonth)]; }
@@ -432,7 +434,7 @@ function onTimeChange(d) {
   recalc();
 }
 
-// 출퇴근 시간이 있는 날의 차감 분 = 휴게(Flex REST 자동 동기화, 없으면 0) + 식대(-30분, 항상 적용)
+// 출퇴근 시간이 있는 날의 차감 분 = 휴게(Flex REST 동기화 값, 없으면 기본 60분) + 식대(-30분, 항상 적용)
 function dayDeductionMinutes(st, d, workMins) {
   if (workMins <= 0) return 0;
   return Math.min(workMins, getBreakMins(st, d) + MEAL_DEDUCT);

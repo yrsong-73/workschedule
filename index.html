@@ -253,7 +253,6 @@ const HOLIDAYS = {
   '2027-12': { 25: '크리스마스', 27: '대체공휴일' },
 };
 
-const MEAL_DEDUCT = 30;
 const BREAK_DEDUCT_DEFAULT = 60;
 
 function hkey(y, m) { return y + '-' + m; }
@@ -434,10 +433,10 @@ function onTimeChange(d) {
   recalc();
 }
 
-// 출퇴근 시간이 있는 날의 차감 분 = 휴게(Flex REST 동기화 값, 없으면 기본 60분) + 식대(-30분, 항상 적용)
+// 출퇴근 시간이 있는 날의 차감 분 = 휴게(Flex REST 동기화 값, 없으면 기본 60분)만 반영
 function dayDeductionMinutes(st, d, workMins) {
   if (workMins <= 0) return 0;
-  return Math.min(workMins, getBreakMins(st, d) + MEAL_DEDUCT);
+  return Math.min(workMins, getBreakMins(st, d));
 }
 
 // 하루 근무 인정 분 = (출퇴근 계산분 - 차감분) + 휴가 인정분(leaveMinutes, 차감 없이 그대로 합산)
